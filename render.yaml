@@ -1,0 +1,30 @@
+# Render Blueprint — one-click deploy of the VCP scanner dashboard.
+# In Render: New + > Blueprint > connect this repo. Then set the `sync:false`
+# secrets in the dashboard (they are NOT stored in the repo).
+services:
+  - type: web
+    name: vcp-scanner
+    runtime: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: OPTIONS_SOURCE
+        value: tradier
+      - key: OHLCV_SOURCE
+        value: tradier
+      - key: TRADIER_BASE
+        value: https://api.tradier.com/v1
+      - key: QUOTE_TTL
+        value: "2"
+      # ---- set these as secrets in the Render dashboard (sync:false) ----
+      - key: TRADIER_TOKEN     # your Tradier access token
+        sync: false
+      - key: DASH_USER         # dashboard login username
+        sync: false
+      - key: DASH_PASS         # dashboard login password (share with your 2-3 viewers)
+        sync: false
+      - key: SCAN_ACCOUNT      # account size for position sizing, e.g. 50000 (optional)
+        sync: false

@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Options Terminal</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --line:#30363d; --line2:#21262d;
+  --txt:#e6edf3; --mut:#8b949e; --dim:#6e7681;
+  --green:#3fb950; --cyan:#58a6ff; --amber:#d29922; --red:#f85149; --purple:#bc8cff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+.mono{font-family:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace}
+.wrap{max-width:min(1600px,98vw);margin:0 auto;padding:16px}
+
+/* top bar */
+.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.logo{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.logo b{color:var(--green)}
+.top .sub{color:var(--dim);font-size:12px}
+.top .right{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid var(--line);
+  border-radius:999px;font-size:12px;background:var(--panel);white-space:nowrap}
+.pill .dot{width:8px;height:8px;border-radius:50%}
+.pill b{font-weight:600}
+.refresh{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:8px;
+  border:1px solid var(--green);background:rgba(63,185,80,.12);color:var(--green);
+  font-weight:600;font-size:12.5px;cursor:pointer;font-family:inherit}
+.refresh:hover{background:var(--green);color:#06140a}
+.refresh.busy{opacity:.7;cursor:progress;border-color:var(--amber);color:var(--amber);background:rgba(210,153,34,.12)}
+.refresh.busy:hover{background:rgba(210,153,34,.12);color:var(--amber)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.refresh.busy #rbtxt::before{content:"⟳ ";display:inline-block;animation:spin 1s linear infinite}
+.autosel{padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+  color:var(--txt);font-family:inherit;font-size:12.5px;cursor:pointer}
+.autonext{font-size:11px;color:var(--dim);min-width:54px}
+.livetape{display:none;font-size:12px;color:var(--mut);margin:0 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel)}
+.livetape b{font-weight:700}
+.livedot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:8px;animation:pulse 1.6s infinite;vertical-align:middle}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,185,80,.5)}70%{box-shadow:0 0 0 6px rgba(63,185,80,0)}100%{box-shadow:0 0 0 0 rgba(63,185,80,0)}}
+.lc{display:block;font-size:10.5px;margin-top:1px}
+
+/* condition row */
+.cond{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:18px}
+.regime{display:flex;align-items:center;gap:12px;padding-right:16px;border-right:1px solid var(--line)}
+.regime .num{font-size:26px;font-weight:700}
+.regime .lbl{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.sectors{display:flex;flex-direction:column;gap:8px;min-width:0}
+.sec-cap{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.sec-cap .mut{text-transform:none;letter-spacing:0;font-weight:400;color:var(--dim)}
+.sec-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+@media(max-width:860px){.sec-row{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}}
+.sec{display:flex;flex-direction:column;gap:6px;padding:8px 9px;border-radius:9px;
+  background:var(--panel2);border:1px solid var(--line)}
+.sec .nm{font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sec .meta{display:flex;align-items:center;gap:6px}
+.sec .etf{font-size:10.5px;color:var(--dim);min-width:30px}
+.sec .bar{flex:1;min-width:14px;height:5px;border-radius:3px;background:#0d1117;overflow:hidden}
+.sec .bar>i{display:block;height:100%}
+.sec .v{font-weight:700;font-size:12.5px;min-width:22px;text-align:right}
+
+/* tabs */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.tab{padding:7px 13px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--mut);
+  border:1px solid transparent}
+.tab:hover{color:var(--txt);background:var(--panel)}
+.tab.on{background:var(--panel);border-color:var(--line);color:var(--txt);font-weight:600}
+.tab .n{color:var(--dim);font-weight:500;font-size:12px}
+.tab.on .n{color:var(--green)}
+.hint{color:var(--dim);font-size:12px;margin:6px 2px 14px}
+
+/* table */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--dim);
+  text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);font-weight:600;
+  cursor:pointer;user-select:none;white-space:nowrap;overflow:hidden}
+thead th.r{text-align:right}
+thead th:hover{color:var(--txt)}
+tbody tr.row{border-bottom:1px solid var(--line2);cursor:pointer;transition:background .12s}
+tbody tr.row:hover{background:#1b222c}
+tbody tr.row.open{background:#1b222c}
+td{padding:6px 6px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
+td.r{text-align:right}
+.tk{font-weight:700;font-size:13px}
+.tk .co{display:block;font-weight:400;font-size:10px;color:var(--dim);max-width:96px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.px{font-weight:600}
+.badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;white-space:nowrap}
+.bg-Ap{background:rgba(63,185,80,.16);color:var(--green)}
+.bg-A{background:rgba(88,166,255,.16);color:var(--cyan)}
+.bg-B{background:rgba(210,153,34,.16);color:var(--amber)}
+.bg-R{background:rgba(248,81,73,.14);color:var(--red)}
+.dirb{font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;letter-spacing:.5px}
+.dir-call{background:rgba(63,185,80,.16);color:var(--green)}
+.dir-put{background:rgba(248,81,73,.16);color:var(--red)}
+.fin{display:flex;align-items:center;gap:6px;justify-content:flex-end}
+.fin .v{font-weight:700;font-size:13px;width:28px;text-align:right}
+.fin .bar{width:38px;height:6px;border-radius:3px;background:#0d1117;overflow:hidden}
+.fin .bar>i{display:block;height:100%}
+.setup{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.setup .more{color:var(--dim);font-size:10px}
+.trade{font-size:11px;white-space:nowrap}
+.trade .e{color:var(--txt);font-weight:600}
+.trade .t{color:var(--green)} .trade .s{color:var(--red)}
+.getopt{padding:5px 9px;border-radius:6px;border:1px solid var(--cyan);background:rgba(88,166,255,.1);
+  color:var(--cyan);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.getopt:hover{background:var(--cyan);color:#06140a}
+.getopt:disabled{opacity:.6;cursor:progress}
+.opt{font-size:12px;white-space:nowrap}
+.opt .k{font-weight:600}
+.opt .m{color:var(--dim);font-size:11px}
+.opt.none{color:var(--dim)}
+.liqdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:5px;vertical-align:middle}
+.sent{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.buy{padding:6px 12px;border-radius:7px;border:1px solid var(--green);background:rgba(63,185,80,.12);
+  color:var(--green);font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap}
+.buy:hover{background:var(--green);color:#06140a}
+.buy.off{border-color:var(--line);color:var(--dim);background:transparent;cursor:not-allowed}
+.buy.off:hover{background:transparent;color:var(--dim)}
+.caret{color:var(--dim);transition:transform .15s;display:inline-block;margin-left:2px}
+tr.row.open .caret{transform:rotate(90deg)}
+
+/* detail drawer */
+tr.det>td{padding:0;border-bottom:1px solid var(--line2);background:#10151d}
+.det-in{padding:16px;display:none;grid-template-columns:1.1fr 1fr;gap:20px}
+tr.det.show .det-in{display:grid}
+.det h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim)}
+.layers{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.lay{flex:1;min-width:70px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+.lay .k{font-size:10px;color:var(--dim);text-transform:uppercase}
+.lay .v{font-size:16px;font-weight:700}
+.lay .b{height:4px;border-radius:2px;background:#0d1117;margin-top:5px;overflow:hidden}
+.lay .b>i{display:block;height:100%}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{font-size:11px;padding:2px 9px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
+.kv{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--line2)}
+.kv span{color:var(--mut)}
+.exit li{font-size:12px;color:var(--mut);margin:3px 0}
+.flag{font-size:12px;margin:4px 0;padding-left:14px;position:relative}
+.flag::before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%}
+.flag.w{color:var(--amber)} .flag.w::before{background:var(--amber)}
+.flag.r{color:var(--red)} .flag.r::before{background:var(--red)}
+.flag.a{color:var(--cyan)} .flag.a::before{background:var(--cyan)}
+.head{font-size:11.5px;color:var(--dim);margin-top:8px;font-style:italic}
+
+/* modal + toast (clean) */
+.modal{position:fixed;inset:0;background:rgba(1,4,9,.7);display:none;align-items:center;justify-content:center;z-index:100}
+.modal.show{display:flex}
+.dlg{width:min(440px,92vw);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+.dlg h2{margin:0 0 4px;font-size:16px}
+.dlg .s{color:var(--mut);font-size:12px;margin-bottom:16px}
+.ord{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--bg)}
+.ord .kv{border:none;padding:4px 0}
+.qty{display:flex;align-items:center;gap:10px;margin:16px 0 6px}
+.qty input{width:72px;background:var(--bg);border:1px solid var(--line);color:var(--txt);
+  padding:8px;border-radius:8px;font-size:15px;text-align:center}
+.qty .est{color:var(--mut);font-size:12px}
+.acts{display:flex;gap:10px;margin-top:8px}
+.acts button{flex:1;padding:11px;border-radius:9px;font-weight:600;cursor:pointer;font-size:13px;border:1px solid var(--line)}
+.acts .cancel{background:transparent;color:var(--mut)}
+.acts .cancel:hover{color:var(--txt);background:var(--panel2)}
+.acts .ok{background:var(--green);color:#06140a;border-color:var(--green)}
+.note{margin-top:12px;font-size:11px;color:var(--amber)}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(30px);opacity:0;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 18px;
+  font-size:13px;z-index:200;transition:.25s;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.empty{padding:40px;text-align:center;color:var(--dim)}
+.lookup-bar{display:flex;align-items:center;gap:10px;margin:0 0 14px;flex-wrap:wrap}
+.lookup-bar input{flex:0 1 340px;background:var(--panel);border:1px solid var(--line);color:var(--txt);
+  padding:9px 12px;border-radius:9px;font-family:inherit;font-size:13px;text-transform:uppercase}
+.lookup-bar input::placeholder{color:var(--dim);text-transform:none}
+.lookup-bar button{padding:9px 16px;border-radius:9px;border:1px solid var(--cyan);
+  background:rgba(88,166,255,.12);color:var(--cyan);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
+.lookup-bar button:hover{background:var(--cyan);color:#06140a}
+.lookup-bar button.busy{opacity:.7;cursor:progress}
+.lookup-hint{color:var(--dim);font-size:11.5px}
+.lookcard{background:var(--panel);border:1px solid var(--cyan);border-radius:12px;padding:14px;margin-bottom:16px;
+  box-shadow:0 0 0 1px rgba(88,166,255,.15)}
+.lookcard .lc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.lookcard .lc-close{margin-left:auto;cursor:pointer;color:var(--dim);font-size:18px;line-height:1}
+.lookcard .lc-close:hover{color:var(--txt)}
+.lookcard .det-in{display:grid !important;padding-left:0;padding-right:0}
+.legend{margin-top:10px;font-size:11.5px;color:var(--mut);line-height:1.9}
+.legend b{color:var(--txt);font-weight:600}
+.legend .lg{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;margin:0 1px}
+.legend .d{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 3px 0 6px;vertical-align:middle}
+footer{color:var(--dim);font-size:11.5px;text-align:center;margin-top:22px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="logo">Options<b>·</b>Terminal</div>
+    <div class="sub mono" id="sub"></div>
+    <div class="right">
+      <button class="refresh" id="refreshBtn" onclick="refresh()"><span id="rbtxt">↻ Refresh now</span></button>
+      <span id="status"></span>
+    </div>
+  </div>
+
+  <div class="cond">
+    <div class="regime" id="regime"></div>
+    <div class="sectors" id="sectors"></div>
+  </div>
+
+  <div id="liveTape" class="livetape"></div>
+
+  <div class="lookup-bar">
+    <input id="lookupInput" placeholder="Analyze any ticker — e.g. AAPL, GOOGL, UBER …"
+           onkeydown="if(event.key==='Enter')analyzeTicker()" autocomplete="off">
+    <button id="lookupBtn" onclick="analyzeTicker()">Analyze</button>
+    <span class="lookup-hint">full multi-layer analysis on demand (any US symbol, in or out of the universe)</span>
+  </div>
+  <div id="lookupWrap"></div>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="hint" id="hint"></div>
+
+  <div class="card"><div style="overflow-x:auto"><table id="tbl"></table></div></div>
+  <div class="legend">
+    <b>Final</b> blended score 0–100 · <b>Class</b>
+    <span class="lg bg-Ap">A+</span> all filters aligned
+    <span class="lg bg-A">A</span> strong
+    <span class="lg bg-B">B</span> watch
+    <span class="lg bg-R">Reject</span> · <b>Trade</b> entry ▸ target / stop ·
+    <b>→Pivot</b> % to breakout entry (− = already above it) ·
+    <b>Option</b> dot = liquidity <span class="d" style="background:var(--green)"></span>good
+    <span class="d" style="background:var(--amber)"></span>ok
+    <span class="d" style="background:var(--red)"></span>thin ·
+    <b>Sent</b> dot <span class="d" style="background:var(--green)"></span>confirms
+    <span class="d" style="background:var(--amber)"></span>neutral
+    <span class="d" style="background:var(--red)"></span>diverges ·
+    click any row for full detail.
+  </div>
+  <footer id="foot"></footer>
+</div>
+
+<div class="modal" id="modal"><div class="dlg">
+  <h2>Confirm order</h2>
+  <div class="s">Buy-to-open long call — review before sending.</div>
+  <div class="ord" id="ord"></div>
+  <div class="qty"><span>Contracts</span><input id="qty" type="number" min="1" value="1"><span class="est" id="est"></span></div>
+  <div class="acts"><button class="cancel" onclick="closeM()">Cancel</button><button class="ok" onclick="confirmM()">Confirm buy</button></div>
+  <div class="note" id="note"></div>
+</div></div>
+<div id="toast"></div>
+
+<script src="./data.js"></script>
+<script>
+let D=window.SCAN_DATA;
+let tab="master", sortKey=null, sortDir=-1, pending=null, openRow=null;
+
+const usd=n=>(n==null||isNaN(n))?"—":"$"+(+n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const num=n=>(n==null||isNaN(n))?"—":(+n).toLocaleString(undefined,{maximumFractionDigits:2});
+const sc=v=>(v==null||v<0)?"#6e7681":v>=80?"#3fb950":v>=60?"#58a6ff":v>=40?"#d29922":"#f85149";
+const ck=c=>c==="A+"?"Ap":c==="A"?"A":c==="B"?"B":"R";
+const liqColor=l=>l==="good"?"#3fb950":l==="ok"?"#d29922":"#f85149";
+const vColor=v=>!v?"#6e7681":(v.startsWith("CONFIRMS")||v.startsWith("sentiment"))?"#3fb950":(v.startsWith("DIVERGES")||v.startsWith("negative"))?"#f85149":"#d29922";
+const shortExp=e=>{ if(!e)return""; const [y,m,d]=e.split("-"); return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]+" "+(+d); };
+
+function head(){
+  document.getElementById("sub").textContent=`data ${D.data_date} · run ${D.generated} · mode ${D.score_mode}`;
+  let statusHtml = D.any_option
+    ? `<span class="pill"><span class="dot" style="background:var(--green)"></span>Options feed live</span>`
+    : `<span class="pill"><span class="dot" style="background:var(--amber)"></span>Market closed — options pending</span>`;
+  const ev=D.event_risk;
+  if(ev){
+    const ecol={LOW:"var(--green)",MEDIUM:"var(--amber)",HIGH:"#ff7b00",EXTREME:"var(--red)"}[ev.level]||"var(--mut)";
+    statusHtml += `<span class="pill" title="${(ev.reason||'').replace(/"/g,'')}">`
+      + `<span class="dot" style="background:${ecol}"></span>Event risk: ${ev.level}`
+      + (ev.mega?" · MEGA":"") + (ev.confirmed?"":" · unconfirmed") + `</span>`;
+  }
+  document.getElementById("status").innerHTML = statusHtml;
+  const r=D.regime,c=sc(r.score);
+  document.getElementById("regime").innerHTML=
+    `<div><div class="num mono" style="color:${c}">${r.score.toFixed(0)}</div><div class="lbl">Market Regime</div></div>
+     <div><div style="font-weight:600">${r.label}</div><div class="lbl mono">VIX ${num(r.vix)}</div></div>`;
+  const chips=D.sectors.map(s=>{
+    const col=sc(s.score);
+    const t=`${s.name} (${s.etf}) · 1m ${s.ret1m>=0?'+':''}${s.ret1m.toFixed(1)}%, 3m ${s.ret3m>=0?'+':''}${s.ret3m.toFixed(1)}% vs SPY/QQQ`;
+    return `<div class="sec" title="${t}">
+      <div class="nm">${s.rank<=3?'★ ':''}${s.name}</div>
+      <div class="meta"><span class="etf mono">${s.etf}</span>
+        <span class="bar"><i style="width:${s.score}%;background:${col}"></i></span>
+        <span class="v mono" style="color:${col}">${s.score.toFixed(0)}</span></div>
+    </div>`;
+  }).join("");
+  document.getElementById("sectors").innerHTML=
+    `<div class="sec-cap">Sector Strength <span class="mut">· score 0–100 vs SPY/QQQ · ★ top 3 (preferred)</span></div>
+     <div class="sec-row">${chips}</div>`;
+}
+
+function tabs(){
+  const base=[{k:"master",l:"Master"},{k:"top",l:"Top Calls"},{k:"puts",l:"Puts"}];
+  const T=base.concat(D.patterns.map(p=>({k:p.key,l:p.label})));
+  document.getElementById("tabs").innerHTML=T.map(x=>{
+    let n;
+    if(x.k==="master") n=D.tickers.filter(t=>t.direction==="PUT"?(t.bearish&&t.bearish.final>=65):t.group!=="AVOID").length;
+    else if(x.k==="top") n=D.tickers.filter(t=>t.group!=="AVOID").length;
+    else if(x.k==="puts") n=D.tickers.filter(t=>t.bearish&&t.bearish.final>=75).length;
+    else n=D.tickers.filter(t=>t.pattern_scores[x.k]>=50).length;
+    return `<div class="tab ${x.k===tab?'on':''}" onclick="go('${x.k}')">${x.l} <span class="n">${n}</span></div>`;
+  }).join("");
+}
+function go(k){ tab=k; sortKey=null; openRow=null; tabs(); render(); }
+
+function dirOf(t){ return tab==="puts"?"PUT": tab==="master"?(t.direction||"CALL"):"CALL"; }
+function vm(t){
+  if(dirOf(t)==="PUT" && t.bearish){ const b=t.bearish;
+    return {d:"PUT",score:b.final,cls:b.classification,setup:b.best_pattern,more:Math.max((b.detected||[]).length-1,0),
+            entry:b.entry,target:b.target,stop:b.stop,rr:b.rr,option:b.put_option,otype:"P",topiv:null}; }
+  return {d:"CALL",score:t.final_score,cls:t.classification,setup:t.best_pattern,more:Math.max((t.detected_patterns||[]).length-1,0),
+          entry:t.entry,target:t.target,stop:t.stop,rr:t.rr,option:t.option,otype:"C",topiv:t.dist_to_pivot};
+}
+
+function rows(){
+  let list;
+  if(tab==="top"){ list=D.tickers.filter(t=>t.group!=="AVOID"); }
+  else if(tab==="master"){ list=D.tickers.filter(t=> t.direction==="PUT"?(t.bearish&&t.bearish.final>=65):t.group!=="AVOID"); }
+  else if(tab==="puts"){ list=D.tickers.filter(t=> t.bearish && t.bearish.final>=60); }
+  else { list=D.tickers.filter(t=>t.pattern_scores[tab]>=50); }
+  const isPattern=!["top","master","puts"].includes(tab);
+  list.sort((a,b)=>{
+    let av,bv;
+    if(sortKey){ av=valOf(a,sortKey); bv=valOf(b,sortKey); }
+    else if(tab==="puts"){ av=a.bearish.final; bv=b.bearish.final; }
+    else if(tab==="master"){ av=vm(a).score; bv=vm(b).score; }
+    else if(isPattern){ av=a.pattern_scores[tab]; bv=b.pattern_scores[tab]; }
+    else { av=a.final_score; bv=b.final_score; }
+    return (av>bv?1:av<bv?-1:0)*(sortKey?sortDir:-1);
+  });
+  return list;
+}
+function valOf(t,k){
+  const v=vm(t);
+  if(k==="price")return t.price; if(k==="final")return v.score;
+  if(k==="rr")return v.rr||0; if(k==="pivot")return v.topiv==null?-999:v.topiv;
+  if(k==="sent")return t.sentiment?t.sentiment.score:-1; return 0;
+}
+function sortBy(k){ if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=-1;} render(); }
+
+function render(){
+  const list=rows();
+  const isPattern=!["top","master","puts"].includes(tab);
+  const strat = isPattern ? D.patterns.find(p=>p.key===tab).label : null;
+  document.getElementById("hint").textContent =
+    tab==="master" ? "Master opportunity list — best risk-adjusted CALLs and PUTs ranked together. Dir = trade side."
+    : tab==="puts" ? "Bearish PUT candidates (bearish score ≥ 60; recommend ≥ 75). Down-moves are faster — confirm the breakdown."
+    : strat ? `Ranked by ${strat} score. Click a row for detail; click a header to re-sort.`
+    : "Top bullish CALL recommendations by Final Score. Click a row for detail.";
+
+  const stratCol = strat?`<th class="r" onclick="sortBy('strat')">${strat}</th>`:"";
+  const head=`<thead><tr>
+    <th>Ticker</th><th>Dir</th><th class="r" onclick="sortBy('price')">Price</th><th>Class</th>
+    <th class="r" onclick="sortBy('final')">Final</th>${stratCol}
+    <th>Setup</th><th>Trade (entry▸target / stop)</th>
+    <th class="r" onclick="sortBy('rr')">R/R</th><th class="r" onclick="sortBy('pivot')">→Pivot</th>
+    <th>Option</th><th class="r" onclick="sortBy('sent')">Sent</th><th></th></tr></thead>`;
+  if(!list.length){ document.getElementById("tbl").innerHTML=head+`<tbody><tr><td colspan="13"><div class="empty">No qualifying setups here right now.</div></td></tr></tbody>`; return; }
+
+  const cols = strat?13:12;
+  const body=list.map((t,i)=>{
+    const v=vm(t), o=v.option, isPut=v.d==="PUT";
+    const optCell = o
+      ? `<div class="opt"><span class="k mono">$${num(o.strike)}${v.otype}</span>
+           <span class="liqdot" style="background:${liqColor(o.liquidity)}"></span>
+           <div class="m mono">${shortExp(o.expiry)} · Δ${num(o.delta)} · ${usd(o.premium)}</div></div>`
+      : (!isPut && !t._noopt
+          ? `<button class="getopt" onclick="event.stopPropagation();getOpt('${t.ticker}',this)">⟲ Get option</button>`
+          : `<div class="opt none">—</div>`);
+    const s=t.sentiment, sentCell = (s&&s.score>=0)
+      ? `<div class="sent"><span class="dot" style="background:${vColor(s.verdict)};width:8px;height:8px;border-radius:50%"></span><span class="mono">${s.score.toFixed(0)}</span></div>`
+      : `<span style="color:var(--dim)">—</span>`;
+    const stratCell = strat?`<td class="r mono" style="font-weight:700;color:${sc(t.pattern_scores[tab])}">${t.pattern_scores[tab].toFixed(0)}</td>`:"";
+    const setup = `<div class="setup">${v.setup}${v.more>0?` <span class="more">+${v.more}</span>`:""}</div>`;
+    const canBuy=!!o;
+    const dirBadge=`<span class="dirb ${isPut?'dir-put':'dir-call'}">${v.d}</span>`;
+    const topiv = v.topiv==null ? `<span style="color:var(--dim)">—</span>`
+      : `<span style="color:${v.topiv<0?'var(--red)':'var(--txt)'}">${v.topiv>=0?'+':''}${v.topiv}%</span>`;
+    return `<tr class="row" data-i="${i}" onclick="toggle(${i})">
+      <td><span class="tk">${t.ticker}</span><span class="co">${t.company}</span></td>
+      <td>${dirBadge}</td>
+      <td class="r px mono" data-px="${t.ticker}">${usd(t.price)}</td>
+      <td><span class="badge bg-${ck(v.cls)}">${v.cls}</span></td>
+      <td class="r"><div class="fin"><span class="bar"><i style="width:${v.score}%;background:${sc(v.score)}"></i></span><span class="v mono" style="color:${sc(v.score)}">${v.score}</span></div></td>
+      ${stratCell}
+      <td>${setup}</td>
+      <td class="trade mono"><span class="e">${usd(v.entry)}</span> ▸ <span class="t">${usd(v.target)}</span> <span class="s">/ ${usd(v.stop)}</span></td>
+      <td class="r mono">${num(v.rr)}</td>
+      <td class="r mono">${topiv}</td>
+      <td>${optCell}</td>
+      <td class="r">${sentCell}</td>
+      <td class="r"><button class="buy ${canBuy?'':'off'}" onclick="event.stopPropagation();openM('${t.ticker}','${v.d}')">${isPut?'Buy Put':'Buy'}</button> <span class="caret">▸</span></td>
+    </tr>
+    <tr class="det" id="det${i}"><td colspan="${cols}">${detail(t,v.d)}</td></tr>`;
+  }).join("");
+  document.getElementById("tbl").innerHTML=head+`<tbody>${body}</tbody>`;
+  applyLive();
+}
+
+/* ---- live ticker overlay (Tradier batch quotes; price-only, no re-scoring) ----
+   Runs continuously, as fast as sustainable: a new fetch starts as soon as the
+   previous one finishes (small floor to respect Tradier's rate limit). */
+let LIVE={};
+function startLive(){ document.getElementById("liveTape").style.display="block"; liveLoop(); }
+async function liveLoop(){
+  await liveTick();
+  setTimeout(liveLoop, 700);           // ~fastest sustainable cadence
+}
+async function liveTick(){
+  try{
+    const syms=[...new Set(D.tickers.map(t=>t.ticker).concat(["SPY","QQQ","IWM","VIX"]))].join(",");
+    const r=await fetch("/api/quotes?symbols="+encodeURIComponent(syms));
+    const j=await r.json(); if(j&&j.quotes&&!j.error){ LIVE=j.quotes; applyLive(); }
+  }catch(e){ /* needs the local server; silent */ }
+}
+function applyLive(){
+  D.tickers.forEach(t=>{
+    const q=LIVE[t.ticker], cell=document.querySelector(`[data-px="${t.ticker}"]`);
+    if(!cell||!q||q.last==null) return;
+    const chg=q.chg_pct==null?null:(+q.chg_pct);
+    const col=chg==null?'var(--txt)':chg>=0?'var(--green)':'var(--red)';
+    cell.innerHTML=`${usd(q.last)}<span class="lc mono" style="color:${col}">${chg==null?'':(chg>=0?'+':'')+chg.toFixed(2)+'%'}</span>`;
+  });
+  updateTape();
+}
+function updateTape(){
+  const el=document.getElementById("liveTape"); if(!el) return;
+  const idx=(s,lbl)=>{const q=LIVE[s]; if(!q||q.chg_pct==null)return `${lbl} —`; const c=+q.chg_pct;
+    return `${lbl} <b style="color:${c>=0?'var(--green)':'var(--red)'}">${c>=0?'+':''}${c.toFixed(2)}%</b>`;};
+  const vq=LIVE["VIX"], vix= (vq&&vq.last!=null)
+    ? `VIX <b style="color:${(+vq.chg_pct||0)>=0?'var(--red)':'var(--green)'}">${(+vq.last).toFixed(1)}</b> (${(+vq.chg_pct>=0?'+':'')}${(+vq.chg_pct).toFixed(0)}%)` : 'VIX —';
+  let red=0,bo=0,n=0;
+  D.tickers.forEach(t=>{const q=LIVE[t.ticker]; if(q&&q.chg_pct!=null){n++; if(+q.chg_pct<0)red++; if(q.open&&q.last<q.open)bo++;}});
+  const breadth=n?`<b style="color:${red/n>0.6?'var(--red)':'var(--txt)'}">${Math.round(red/n*100)}% red</b> · ${Math.round(bo/n*100)}% below open`:'';
+  el.innerHTML=`<span class="livedot"></span><b style="color:var(--green)">LIVE</b> · ${idx("SPY","SPY")} · ${idx("QQQ","QQQ")} · ${idx("IWM","IWM")} · ${vix} · ${breadth} <span style="color:var(--dim)">@ ${new Date().toLocaleTimeString()}</span>`;
+}
+
+function detail(t,dir){ return dir==="PUT" ? detailPut(t) : detailCall(t); }
+function detailPut(t){
+  const b=t.bearish||{}, items=[["Bear Mkt",b.market],["Bear Sector",b.sector],["Pattern",b.pattern_score],["Rel.Weak",b.rel_weakness],["Put Liq",b.liq]];
+  const layers=items.map(([k,v])=>{const known=v!=null&&v>=0,disp=known?(+v).toFixed(0):"n/a",w=known?v:0;
+    return `<div class="lay"><div class="k">${k}</div><div class="v mono" style="color:${sc(v)}">${disp}</div><div class="b"><i style="width:${w}%;background:${sc(v)}"></i></div></div>`;}).join("");
+  const chips=(b.detected||[]).map(p=>`<span class="chip">${p}</span>`).join("")||`<span class="chip">${b.best_pattern||'—'}</span>`;
+  const o=b.put_option;
+  const optKv=o
+    ? `<div class="kv"><span>Contract</span><b class="mono">${o.expiry} $${num(o.strike)}P · ${o.dte}DTE · Δ${num(o.delta)}</b></div>
+       <div class="kv"><span>Premium / breakeven</span><b class="mono">${usd(o.premium)} · ${usd(o.breakeven)}</b></div>
+       <div class="kv"><span>OI / vol / spread</span><b class="mono">${o.oi} · ${o.volume} · ${num(o.spread_pct)}%</b></div>
+       <div class="kv"><span>Suggested size</span><b class="mono">${b.position_note||"—"}</b></div>`
+    : `<div class="kv"><span>Put option</span><b style="color:var(--dim)">No live put contract</b></div>`;
+  const exit=`<h4>Put exit plan</h4><ul class="exit">
+    <li>Stop: premium −30 to −40%${o?` (~${usd(o.premium*0.65)})`:''}</li>
+    <li>Trim 50% at +50%${o?` (~${usd(o.premium*1.5)})`:''}; move stop to breakeven</li>
+    <li>Sell rest at +100% or trailing stop</li>
+    <li>Exit if stock closes back above ${usd(b.stop)} (failed level / 50DMA reclaim)</li>
+    <li>Exit if the bearish market regime flips bullish</li></ul>`;
+  const warns=(b.warnings||[]).map(w=>{const r=/do not|too extended|No put|weak|avoid|< 1.5/i.test(w);return `<div class="flag ${r?'r':'w'}">${w}</div>`;}).join("");
+  return `<div class="det-in">
+    <div>
+      <h4>Bearish layer scores</h4><div class="layers">${layers}</div>
+      <h4>Bearish patterns</h4><div class="chips">${chips}</div>
+      <div class="kv"><span>Put trade</span><b class="mono">entry ${usd(b.entry)} ▸ tgt ${usd(b.target)} / stop ${usd(b.stop)} · R/R ${num(b.rr)}</b></div>
+      <div class="kv"><span>Earnings</span><b>${t.earnings_date}${t.earnings_within_7d?' ⚠ ≤7d':''}</b></div>
+    </div>
+    <div>
+      <h4>Put option & sizing</h4>${optKv}
+      ${exit}
+      ${warns?`<h4 style="margin-top:12px">Flags</h4>${warns}`:""}
+    </div></div>`;
+}
+function detailCall(t){
+  const L=t.layers, items=[["Market",L.market],["Sector",L.sector],["Pattern",L.pattern],["Rel.Str",L.rs],["Liquidity",L.liq],["Earnings",L.earn]];
+  const layers=items.map(([k,v])=>{
+    const known=v!=null&&v>=0, disp=known?v.toFixed(0):"n/a", w=known?v:0;
+    return `<div class="lay"><div class="k">${k}</div><div class="v mono" style="color:${sc(v)}">${disp}</div><div class="b"><i style="width:${w}%;background:${sc(v)}"></i></div></div>`;
+  }).join("");
+  const chips=t.detected_patterns.map(p=>`<span class="chip">${p}</span>`).join("")||`<span class="chip">${t.best_pattern}</span>`;
+  const o=t.option;
+  const optKv = o
+    ? `<div class="kv"><span>Contract</span><b class="mono">${o.expiry} $${num(o.strike)}C · ${o.dte}DTE · Δ${num(o.delta)}</b></div>
+       <div class="kv"><span>Premium / breakeven</span><b class="mono">${usd(o.premium)} · ${usd(o.breakeven)}</b></div>
+       <div class="kv"><span>OI / vol / spread</span><b class="mono">${o.oi} · ${o.volume} · ${num(o.spread_pct)}%</b></div>
+       <div class="kv"><span>Suggested size</span><b class="mono">${t.position_note||"—"}</b></div>`
+    : `<div class="kv"><span>Option</span><b style="color:var(--dim)">No live contract (market closed / illiquid)</b></div>`;
+  const s=t.sentiment;
+  const sentKv = (s&&s.score>=0)
+    ? `<div class="kv"><span>Sentiment</span><b style="color:${vColor(s.verdict)}">${s.score.toFixed(0)} · ${s.verdict}</b></div>
+       <div class="kv"><span>News / Reddit</span><b class="mono">${s.news_sent>=0?s.news_sent.toFixed(0):'n/a'} / ${s.reddit_sent>=0?s.reddit_sent.toFixed(0):'n/a'}${s.reddit_mentions>=0?' · '+s.reddit_mentions+' mentions':''}</b></div>`
+    : "";
+  const headline = (s&&s.headlines&&s.headlines.length)?`<div class="head">“${s.headlines[0].slice(0,120)}”</div>`:"";
+  const alerts=(t.alerts||[]).map(a=>`<div class="flag a">${a}</div>`).join("");
+  const warns=(t.warnings||[]).map(w=>{const r=/Below 200|bearish|do not chase|Very Extended|chasing/i.test(w);return `<div class="flag ${r?'r':'w'}">${w}</div>`;}).join("");
+  const exit=(t.exit_plan&&t.exit_plan.length)?`<h4>Exit plan</h4><ul class="exit">${t.exit_plan.map(e=>`<li>${e}</li>`).join("")}</ul>`:"";
+  return `<div class="det-in">
+    <div>
+      <h4>Layer scores</h4><div class="layers">${layers}</div>
+      <h4>Patterns detected</h4><div class="chips">${chips}</div>
+      <div class="kv"><span>Earnings</span><b>${t.earnings_date}${t.earnings_within_7d?' ⚠ ≤7d':''}</b></div>
+      ${sentKv}${headline}
+    </div>
+    <div>
+      <h4>Option & sizing</h4>${optKv}
+      ${exit}
+      ${(alerts||warns)?`<h4 style="margin-top:12px">Flags</h4>${alerts}${warns}`:""}
+    </div>
+  </div>`;
+}
+
+function toggle(i){
+  const d=document.getElementById("det"+i), r=document.querySelector(`tr.row[data-i="${i}"]`);
+  const isOpen=d.classList.contains("show");
+  if(openRow!=null){ const od=document.getElementById("det"+openRow); if(od)od.classList.remove("show"); const orr=document.querySelector(`tr.row[data-i="${openRow}"]`); if(orr)orr.classList.remove("open"); }
+  if(isOpen){ openRow=null; return; }
+  d.classList.add("show"); r.classList.add("open"); openRow=i;
+}
+
+/* buy modal — Phase 1 dry run (CALL or PUT) */
+let pendingDir="CALL";
+function pendOpt(){ if(!pending)return null; return pendingDir==="PUT" ? (pending.bearish&&pending.bearish.put_option) : pending.option; }
+function openM(tk, dir){
+  pendingDir=dir||"CALL";
+  const t=D.tickers.find(x=>x.ticker===tk); pending=t; const o=pendOpt();
+  const typ=pendingDir==="PUT"?"PUT":"CALL", L=pendingDir==="PUT"?"P":"C";
+  const ord=document.getElementById("ord");
+  if(o){
+    const qty=pendingDir==="PUT"?(t.bearish&&t.bearish.contracts):t.contracts;
+    ord.innerHTML=`<div class="kv"><span>Symbol</span><b>${t.ticker} · ${t.company}</b></div>
+      <div class="kv"><span>Contract</span><b class="mono" style="color:${pendingDir==='PUT'?'var(--red)':'var(--green)'}">${o.expiry} $${num(o.strike)} ${typ}</b></div>
+      <div class="kv"><span>DTE / Δ</span><b class="mono">${o.dte} / ${num(o.delta)}</b></div>
+      <div class="kv"><span>Premium</span><b class="mono">${usd(o.premium)} (${usd(o.premium*100)}/ct)</b></div>
+      <div class="kv"><span>Breakeven</span><b class="mono">${usd(o.breakeven)}</b></div>`;
+    document.getElementById("qty").value=qty>0?qty:1;
+    document.getElementById("note").textContent="Dry run — Robinhood not connected yet (Phase 2).";
+  } else {
+    ord.innerHTML=`<div class="kv"><span>${t.ticker}</span><b style="color:var(--red)">No live ${typ} contract</b></div>
+      <div style="color:var(--mut);font-size:12px;margin-top:6px">Re-run during market hours to fetch a verified chain.</div>`;
+    document.getElementById("note").textContent="";
+  }
+  estUpd(); document.getElementById("modal").classList.add("show");
+}
+function estUpd(){ const o=pendOpt(),q=+document.getElementById("qty").value||0;
+  document.getElementById("est").textContent=o?("≈ "+usd(o.premium*100*q)):""; }
+document.getElementById("qty").addEventListener("input",estUpd);
+function closeM(){ document.getElementById("modal").classList.remove("show"); pending=null; }
+function confirmM(){
+  const t=pending,q=+document.getElementById("qty").value||0,o=pendOpt(); if(!t){closeM();return;}
+  if(!o){ toast("No live contract to buy for "+t.ticker); closeM(); return; }
+  const L=pendingDir==="PUT"?"P":"C";
+  /* PHASE 2 HOOK: POST {symbol,expiry,strike,type,quantity,limit} to local Robinhood bridge */
+  toast(`Dry run · would buy ${q} × ${t.ticker} ${shortExp(o.expiry)} $${num(o.strike)}${L} (≈${usd(o.premium*100*q)}). Robinhood not connected (Phase 2).`);
+  closeM();
+}
+let tt; function toast(m){ const e=document.getElementById("toast"); e.textContent=m; e.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>e.classList.remove("show"),6000); }
+
+/* live refresh — re-runs the scanner via the local server (dashboard/serve.py) */
+async function refresh(){
+  const btn=document.getElementById("refreshBtn"), txt=document.getElementById("rbtxt");
+  if(btn.classList.contains("busy")) return;
+  btn.classList.add("busy"); txt.textContent="Refreshing…";
+  try{
+    const acct=(D&&D.account_size)||0, mode=(D&&D.score_mode)||"best";
+    const res=await fetch(`/api/refresh?mode=${encodeURIComponent(mode)}&account=${encodeURIComponent(acct)}`,{method:"POST"});
+    let j; try{ j=await res.json(); }catch(_){ j={error:"bad server response"}; }
+    if(!res.ok || j.error) throw new Error(j.error || ("HTTP "+res.status));
+    D=j; window.SCAN_DATA=j; openRow=null; sortKey=null;
+    head(); tabs(); render();
+    toast("Updated · "+j.generated+(j.any_option?" · options feed LIVE":" · market closed (options pending)"));
+  }catch(e){
+    const off=/Failed to fetch|NetworkError|Load failed|bad server response/i.test(e.message||"");
+    toast(off
+      ? "Live refresh needs the local server. Run:  python3 dashboard/serve.py  then open http://127.0.0.1:8787"
+      : "Refresh failed: "+(e.message||e));
+  }finally{
+    btn.classList.remove("busy"); txt.textContent="↻ Refresh now";
+  }
+}
+
+/* on-demand FULL analysis of any ticker typed in the search bar */
+async function analyzeTicker(){
+  const inp=document.getElementById("lookupInput"), btn=document.getElementById("lookupBtn");
+  const tk=(inp.value||"").trim().toUpperCase();
+  if(!tk || btn.classList.contains("busy")) return;
+  btn.classList.add("busy"); const old=btn.textContent; btn.textContent="Analyzing…";
+  try{
+    const body={ticker:tk, account:(D.account_size||0), risk:(D.risk||{max_risk_pct:1.5,max_prem_loss:0.35})};
+    const res=await fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    let j; try{ j=await res.json(); }catch(_){ j={error:"bad server response"}; }
+    if(!res.ok || j.error) throw new Error(j.error||("HTTP "+res.status));
+    // store so Buy / Get-option work via existing handlers
+    const i=D.tickers.findIndex(x=>x.ticker===j.ticker);
+    if(i>=0) D.tickers[i]=j; else D.tickers.push(j);
+    renderLookup(j);
+    toast(`${j.ticker}: final ${j.final_score} [${j.classification}] · ${j.group}`);
+  }catch(e){
+    const off=/Failed to fetch|NetworkError|Load failed|bad server response/i.test(e.message||"");
+    toast(off ? "Lookup needs the local server (python3 dashboard/serve.py)."
+              : "Analyze failed: "+(e.message||e));
+  }finally{
+    btn.classList.remove("busy"); btn.textContent=old;
+  }
+}
+function renderLookup(t){
+  const dir=t.direction||"CALL", isPut=dir==="PUT";
+  const cls=isPut?(t.bearish&&t.bearish.classification):t.classification;
+  const o=isPut?(t.bearish&&t.bearish.put_option):t.option;
+  const ev=(t.event_risk_level && t.event_risk_level!=="LOW")
+    ? `<span class="badge bg-B" style="margin-left:6px">event ${t.event_risk_level}</span>` : "";
+  const canBuy=!!o;
+  const buy=`<button class="buy ${canBuy?'':'off'}" onclick="openM('${t.ticker}','${dir}')">${canBuy?(isPut?'Buy Put':'Buy'):'No contract'}</button>`;
+  const bf=(t.bearish&&t.bearish.final)||0;
+  document.getElementById("lookupWrap").innerHTML=
+    `<div class="lookcard">
+       <div class="lc-head">
+         <span class="tk">${t.ticker}</span>
+         <span class="co">${t.company||''} · ${t.sector||''} / ${t.sector_etf||''}</span>
+         <span class="dirb ${isPut?'dir-put':'dir-call'}">${dir}</span>
+         <span class="badge bg-${ck(cls)}">${cls}</span>${ev}
+         <span class="px mono" style="margin-left:6px">${usd(t.price)} · CALL <b style="color:${sc(t.final_score)}">${t.final_score}</b> · PUT <b style="color:${sc(bf)}">${bf}</b></span>
+         ${buy}
+         <span class="lc-close" title="close" onclick="document.getElementById('lookupWrap').innerHTML=''">✕</span>
+       </div>
+       ${detail(t,dir)}
+     </div>`;
+  document.getElementById("lookupWrap").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+/* on-demand single-ticker option lookup (one chain fetch) */
+async function getOpt(tk, btn){
+  if(btn.disabled) return;
+  btn.disabled=true; const old=btn.textContent; btn.textContent="…";
+  try{
+    const t=D.tickers.find(x=>x.ticker===tk);
+    const body={ticker:tk, data:t, account:(D.account_size||0),
+                 size_factor:(D.regime&&D.regime.size_factor!=null?D.regime.size_factor:1),
+                 risk:(D.risk||{max_risk_pct:1.5,max_prem_loss:0.35})};
+    const res=await fetch("/api/option",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    let j; try{ j=await res.json(); }catch(_){ j={error:"bad server response"}; }
+    if(!res.ok || j.error) throw new Error(j.error||("HTTP "+res.status));
+    // NON-DISRUPTIVE: fill ONLY the contract + its option-derived details.
+    // Final score, classification, group and layer scores stay exactly as the
+    // scan computed them — Get-option never re-scores or re-ranks the board.
+    // (Use ↻ Refresh to re-score everyone consistently with live liquidity.)
+    if(j.option){
+      t.option=j.option;
+      t.options_liquidity=j.options_liquidity||j.option.liquidity;
+      t.exit_plan=j.exit_plan;
+      t.contracts=j.contracts;
+      t.position_note=j.position_note;
+      t._noopt=false;
+      t.warnings=(t.warnings||[]).filter(w=>!/No option recommendation/i.test(w) && !/Options liquidity weak/i.test(w));
+      if(j.option.liquidity==='thin') t.warnings.push(`Options liquidity weak (${j.option.liquidity}) — verify before trading.`);
+      toast(`${tk}: $${num(j.option.strike)}C ${shortExp(j.option.expiry)} · Δ${num(j.option.delta)} · ${usd(j.option.premium)} · liq ${j.option.liquidity}  (scores unchanged)`);
+    } else {
+      t._noopt=true;
+      t.warnings=(t.warnings||[]).filter(w=>!/No option recommendation/i.test(w));
+      if(!t.warnings.some(w=>/no tradable/i.test(w))) t.warnings.push("No tradable Δ0.65 contract (illiquid feed or market closed).");
+      toast(`${tk}: no tradable Δ0.65 contract (illiquid feed or market closed).`);
+    }
+    render();
+  }catch(e){
+    const off=/Failed to fetch|NetworkError|Load failed|bad server response/i.test(e.message||"");
+    toast(off ? "On-demand lookup needs the local server (python3 dashboard/serve.py)."
+              : "Option fetch failed: "+(e.message||e));
+    btn.disabled=false; btn.textContent=old;
+  }
+}
+
+/* auto-refresh: full re-scan continuously — next scan starts as soon as the
+   previous finishes (self-limits via the scanner's retry/backoff). */
+async function autoLoop(){
+  await refresh();
+  setTimeout(autoLoop, 300000);   // full re-scan every 5 minutes (live quotes stay continuous)
+}
+
+function boot(){
+  if(!D){ document.body.innerHTML="<div class='wrap'><div class='empty'>No data.js — run: python3 vcp_tracker.py --score-mode best --json dashboard/data.js</div></div>"; return; }
+  head(); tabs(); render(); startLive(); autoLoop();
+  document.getElementById("foot").innerHTML="A pattern alone is not a trade — market · sector · stock · pattern · liquidity · risk must all align.<br>Educational only · not financial advice · long options can expire worthless · verify every quote in your broker.";
+}
+boot();
+</script>
+</body>
+</html>

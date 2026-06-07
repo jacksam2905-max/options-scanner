@@ -1,0 +1,16 @@
+# --- SECRETS — never commit (set these as env vars on the host instead) ---
+tradier_creds.sh
+reddit_creds.sh
+*.env
+
+# runtime output / logs / caches
+reports/
+__pycache__/
+*.pyc
+.DS_Store
+
+# NOTE: dashboard/data.js, dynamic_leadership_universe.json and market_events.json
+# ARE committed on purpose so the cloud app has data + universe on first load.
+
+# local Claude Code config (machine-specific)
+.claude/
