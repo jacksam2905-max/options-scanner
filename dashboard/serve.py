@@ -107,9 +107,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self._send(404, json.dumps({"error": "not found"}))
 
     def do_GET(self):
+        path = urllib.parse.urlparse(self.path).path
+        if path in ("/healthz", "/health"):            # unauthenticated health check
+            return self._send(200, "ok", "text/plain")
         if not self._auth():
             return
-        path = urllib.parse.urlparse(self.path).path
         if path == "/api/refresh":
             return self._refresh()
         if path == "/api/quotes":

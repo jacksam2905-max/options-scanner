@@ -7,7 +7,7 @@ services:
     runtime: docker
     plan: free
     autoDeploy: true
-    healthCheckPath: /
+    healthCheckPath: /healthz
     envVars:
       - key: HOST
         value: 0.0.0.0
