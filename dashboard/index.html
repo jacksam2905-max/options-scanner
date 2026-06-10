@@ -297,11 +297,12 @@ function head(){
 }
 
 function tabs(){
-  const base=[{k:"master",l:"Master"},{k:"top",l:"Top Calls"},{k:"puts",l:"Puts"}];
+  const base=[{k:"master",l:"Master"},{k:"top",l:"Top Calls"},{k:"puts",l:"Puts"},{k:"uoa",l:"UOA"}];
   const T=base.concat(D.patterns.map(p=>({k:p.key,l:p.label})));
   document.getElementById("tabs").innerHTML=T.map(x=>{
     let n;
-    if(x.k==="master") n=D.tickers.filter(t=>t.direction==="PUT"?(t.bearish&&t.bearish.final>=60):t.group!=="AVOID").length;
+    if(x.k==="uoa") n=(window.UOA&&window.UOA.rows)?window.UOA.rows.filter(r=>r.unusual).length:"·";
+    else if(x.k==="master") n=D.tickers.filter(t=>t.direction==="PUT"?(t.bearish&&t.bearish.final>=60):t.group!=="AVOID").length;
     else if(x.k==="top") n=D.tickers.filter(t=>t.group!=="AVOID").length;
     else if(x.k==="puts") n=D.tickers.filter(t=>t.direction==="PUT"||(t.bearish&&t.bearish.final>=60)).length;
     else n=D.tickers.filter(t=>t.pattern_scores[x.k]>=50).length;
@@ -346,6 +347,7 @@ function valOf(t,k){
 function sortBy(k){ if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=-1;} render(); }
 
 function render(){
+  if(tab==="uoa"){ renderUOA(); return; }
   const list=rows();
   const isPattern=!["top","master","puts"].includes(tab);
   const strat = isPattern ? D.patterns.find(p=>p.key===tab).label : null;
@@ -471,6 +473,7 @@ function detailPut(t){
     </div>
     <div>
       <h4>Put option & sizing</h4>${optKv}
+      ${t.flow?`<div class="kv"><span>Options flow</span><b class="mono" style="color:${t.flow.tilt==='PUT'?'var(--red)':'var(--txt)'}">${t.flow.score}/100 · P/C ${t.flow.pcr} · tilt ${t.flow.tilt}</b></div>`:''}
       ${exit}
       ${warns?`<h4 style="margin-top:12px">Flags</h4>${warns}`:""}
     </div></div>`;
@@ -507,6 +510,7 @@ function detailCall(t){
     </div>
     <div>
       <h4>Option & sizing</h4>${optKv}
+      ${t.flow?`<div class="kv"><span>Options flow</span><b class="mono" style="color:${t.flow.unusual?'var(--green)':'var(--txt)'}">${t.flow.score}/100 · vol/OI ${t.flow.vol_oi} · P/C ${t.flow.pcr} · tilt ${t.flow.tilt}${t.flow.unusual?' · UNUSUAL':''}</b></div>`:''}
       ${exit}
       ${(alerts||warns)?`<h4 style="margin-top:12px">Flags</h4>${alerts}${warns}`:""}
     </div>
@@ -677,6 +681,60 @@ async function getOpt(tk, btn){
 async function autoLoop(){
   await refresh();
   setTimeout(autoLoop, 300000);   // full re-scan every 5 minutes (live quotes stay continuous)
+}
+
+/* ---- STANDALONE UOA tab (separate module/universe; no scanner coupling) ---- */
+async function loadUOA(force){
+  try{
+    const res = force
+      ? await fetch("/api/uoa",{method:"POST"})
+      : await fetch("/api/uoa");
+    const j=await res.json();
+    if(j&&j.rows){ window.UOA=j; }
+    else if(!force && j&&j.stale && !window.UOA){ /* no cache yet */ }
+    if(j&&j.error) toast("UOA: "+j.error);
+  }catch(e){ toast("UOA needs the local server."); }
+  tabs(); if(tab==="uoa") renderUOA();
+}
+function runUOA(btn){
+  if(btn){ btn.disabled=true; btn.textContent="Scanning… (~1-2 min)"; }
+  loadUOA(true).finally(()=>{ if(btn){btn.disabled=false; btn.textContent="↻ Run UOA scan";} });
+}
+function renderUOA(){
+  const U=window.UOA;
+  document.getElementById("hint").innerHTML =
+    `Standalone Unusual Options Activity — separate universe (leaders + laggards + most-active option names), `+
+    `backtest: PUT-side spikes +12pp edge vs baseline, CALL-side ~none — weight put flow more · `+
+    `front expiry, rubric: ${U?U.weights:"30% vol/OI · 20% IV · 20% volume · 15% |Δprice| · 15% spread"} · `+
+    `<button class="getopt" onclick="runUOA(this)">↻ Run UOA scan</button>`+
+    (U?` <span style="color:var(--dim)">last run ${U.generated} · ${U.count} names</span>`:"");
+  const head=`<thead><tr><th>Ticker</th><th class="r">Price</th><th class="r">Δ%</th>
+    <th>Dir</th><th class="r">UOA score</th><th class="r">Vol/OI</th><th class="r">Call vol</th>
+    <th class="r">Put vol</th><th class="r">P/C</th><th class="r">IV</th><th class="r">Spread</th>
+    <th>Standout contracts (vol≥500 & vol/OI≥2)</th></tr></thead>`;
+  if(!U||!U.rows||!U.rows.length){
+    document.getElementById("tbl").innerHTML=head+`<tbody><tr><td colspan="12"><div class="empty">No UOA data yet — hit “Run UOA scan” (takes ~1-2 min; cached 15 min).</div></td></tr></tbody>`;
+    if(!window._uoaTried){ window._uoaTried=true; loadUOA(false); }
+    return;
+  }
+  const body=U.rows.slice(0,40).map(r=>{
+    const dirb=`<span class="dirb ${r.direction==='PUT'?'dir-put':r.direction==='CALL'?'dir-call':''}" ${r.direction==='mixed'?'style="background:var(--panel2);color:var(--mut)"':''}>${r.direction}</span>`;
+    const st=(r.standouts||[]).map(s=>`<span class="chip" title="last ${s.last} Δ${s.delta}">${s.type==='call'?'C':'P'}$${s.strike} v${s.vol.toLocaleString()}/oi${s.oi.toLocaleString()} (${s.vol_oi}x)</span>`).join(" ")||'<span style="color:var(--dim)">—</span>';
+    return `<tr class="row" style="cursor:default">
+      <td><span class="tk">${r.ticker}</span>${r.unusual?'<span class="badge bg-Ap" style="margin-left:6px">UNUSUAL</span>':''}</td>
+      <td class="r mono">${usd(r.price)}</td>
+      <td class="r mono" style="color:${r.chg_pct>=0?'var(--green)':'var(--red)'}">${r.chg_pct>=0?'+':''}${r.chg_pct}%</td>
+      <td>${dirb}</td>
+      <td class="r"><div class="fin"><span class="bar"><i style="width:${r.score}%;background:${sc(r.score)}"></i></span><span class="v mono" style="color:${sc(r.score)}">${r.score}</span></div></td>
+      <td class="r mono" style="font-weight:${r.vol_oi>=1?'700':'400'}">${r.vol_oi}</td>
+      <td class="r mono">${r.call_vol.toLocaleString()}</td>
+      <td class="r mono">${r.put_vol.toLocaleString()}</td>
+      <td class="r mono">${r.pcr}</td>
+      <td class="r mono">${r.atm_iv}%</td>
+      <td class="r mono">${r.spread}%</td>
+      <td>${st}</td></tr>`;
+  }).join("");
+  document.getElementById("tbl").innerHTML=head+`<tbody>${body}</tbody>`;
 }
 
 function boot(){

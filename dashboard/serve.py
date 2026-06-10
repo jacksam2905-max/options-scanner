@@ -104,6 +104,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._option()
         if path == "/api/analyze":
             return self._analyze()
+        if path == "/api/uoa":
+            return self._uoa(run=True)
         self._send(404, json.dumps({"error": "not found"}))
 
     def do_GET(self):
@@ -116,7 +118,33 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._refresh()
         if path == "/api/quotes":
             return self._quotes()
+        if path == "/api/uoa":
+            return self._uoa(run=False)
         return super().do_GET()
+
+    def _uoa(self, run: bool):
+        """Standalone UOA scan. GET returns the cached result (if <15 min old);
+        POST runs a fresh scan (~1-2 min, one chains call per name)."""
+        cache = os.path.join(ROOT, "uoa.json")
+        if not run:
+            try:
+                age = time.time() - os.path.getmtime(cache)
+                if age < 900:
+                    with open(cache) as fh:
+                        return self._send(200, fh.read())
+                return self._send(200, json.dumps({"stale": True, "age_min": round(age / 60)}))
+            except FileNotFoundError:
+                return self._send(200, json.dumps({"stale": True}))
+        if not _lock.acquire(blocking=False):
+            return self._send(409, json.dumps({"error": "scanner busy, try again"}))
+        try:
+            import uoa
+            payload = uoa.scan()
+            self._send(200, json.dumps(payload, default=lambda x: None))
+        except Exception as exc:  # noqa: BLE001
+            self._send(500, json.dumps({"error": str(exc)[-600:]}))
+        finally:
+            _lock.release()
 
     def _quotes(self):
         """Live batch quotes via Tradier, with a short server-side cache so the

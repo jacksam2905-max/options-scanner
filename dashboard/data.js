@@ -1,5 +1,5 @@
 window.SCAN_DATA = {
-  "generated": "2026-06-09 21:59:03",
+  "generated": "2026-06-09 22:41:58",
   "data_date": "2026-06-09",
   "score_mode": "best",
   "account_size": 50000.0,
@@ -160,6 +160,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 48.7,
+        "vol_oi": 0.17,
+        "call_vol": 4005,
+        "put_vol": 4365,
+        "pcr": 1.09,
+        "spread": 2.7,
+        "atm_iv": 71.9,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 35.9,
         "classification": "IGNORE",
@@ -266,13 +278,13 @@ window.SCAN_DATA = {
         "Exit or roll if < 14 DTE remaining"
       ],
       "sentiment": {
-        "score": 61.8,
+        "score": 66.7,
         "verdict": "CONFIRMS",
         "news_sent": 48.6,
         "news_count": 25,
-        "reddit_sent": 75.0,
+        "reddit_sent": 84.8,
         "reddit_count": 50,
-        "reddit_mentions": 46,
+        "reddit_mentions": 47,
         "headlines": [
           "Wall Street sees AI trade bearing fruit with MANGOS ahead of IPOs MANGOS \u2014 no, not the tropical stone fruit \u2014 is the latest Big Tech acronym to be at the top of investors' minds ahead of 2026's biggest IPOs. MANGOS consists of Meta Platforms (META), Anthropic (ANTH.PVT), Nvidia (NVDA), Alphabet (GOOG, GOOGL), OpenAI (OPAI.PVT), and SpaceX (SPCX, SPAX.PVT). Yahoo Finance Senior Business Reporter Ines Ferr\u00e9 explains the latest AI tech groupings being coined by Wall Street analysts.",
           "SMH ETF Investors: Watch Hyperscaler Capex Guidance at July Earnings Calls The VanEck Semiconductor ETF (NYSEARCA:SMH) closed Friday at $599, capping a stretch in which SMH has returned roughly 146% over the past year and tacked on nearly 20% in May alone. SMH is up about 66% year to date, and the rally has been driven less by NVIDIA than most holders assume. Because the fund ... SMH ETF Investors: Watch Hyperscaler Capex Guidance at July Earnings Calls",
@@ -305,6 +317,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 48.4,
+        "vol_oi": 0.18,
+        "call_vol": 5196,
+        "put_vol": 1183,
+        "pcr": 0.23,
+        "spread": 6.8,
+        "atm_iv": 38.1,
+        "tilt": "CALL",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 28.2,
         "classification": "IGNORE",
@@ -446,6 +470,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 41.8,
+        "vol_oi": 0.25,
+        "call_vol": 1333,
+        "put_vol": 1370,
+        "pcr": 1.03,
+        "spread": 5.0,
+        "atm_iv": 107.8,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 23.2,
         "classification": "IGNORE",
@@ -590,6 +626,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 30.3,
+        "vol_oi": 0.05,
+        "call_vol": 212,
+        "put_vol": 154,
+        "pcr": 0.73,
+        "spread": 9.1,
+        "atm_iv": 85.5,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 30.5,
         "classification": "IGNORE",
@@ -735,6 +783,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 37.4,
+        "vol_oi": 0.1,
+        "call_vol": 729,
+        "put_vol": 520,
+        "pcr": 0.71,
+        "spread": 9.9,
+        "atm_iv": 46.6,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 27.1,
         "classification": "IGNORE",
@@ -877,6 +937,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 23.9,
+        "vol_oi": 0.04,
+        "call_vol": 196,
+        "put_vol": 207,
+        "pcr": 1.06,
+        "spread": 15.5,
+        "atm_iv": 80.4,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 36.5,
         "classification": "IGNORE",
@@ -1018,6 +1090,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 39.2,
+        "vol_oi": 0.09,
+        "call_vol": 564,
+        "put_vol": 634,
+        "pcr": 1.12,
+        "spread": 6.9,
+        "atm_iv": 50.5,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 33.2,
         "classification": "IGNORE",
@@ -1158,6 +1242,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 45.6,
+        "vol_oi": 0.31,
+        "call_vol": 1628,
+        "put_vol": 995,
+        "pcr": 0.61,
+        "spread": 6.4,
+        "atm_iv": 67.5,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 20.4,
         "classification": "IGNORE",
@@ -1297,6 +1393,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 39.2,
+        "vol_oi": 0.32,
+        "call_vol": 173,
+        "put_vol": 197,
+        "pcr": 1.14,
+        "spread": 6.6,
+        "atm_iv": 67.0,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 20.4,
         "classification": "IGNORE",
@@ -1437,6 +1545,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 28.3,
+        "vol_oi": 0.03,
+        "call_vol": 93,
+        "put_vol": 58,
+        "pcr": 0.62,
+        "spread": 11.2,
+        "atm_iv": 49.7,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 26.6,
         "classification": "IGNORE",
@@ -1574,6 +1694,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 29.3,
+        "vol_oi": 0.08,
+        "call_vol": 90,
+        "put_vol": 4,
+        "pcr": 0.04,
+        "spread": 13.3,
+        "atm_iv": 24.2,
+        "tilt": "CALL",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 16.7,
         "classification": "IGNORE",
@@ -1717,6 +1849,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 36.7,
+        "vol_oi": 0.08,
+        "call_vol": 280,
+        "put_vol": 324,
+        "pcr": 1.16,
+        "spread": 6.0,
+        "atm_iv": 62.5,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 31.9,
         "classification": "IGNORE",
@@ -1856,6 +2000,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 15.3,
+        "vol_oi": 0.05,
+        "call_vol": 7,
+        "put_vol": 0,
+        "pcr": 0.0,
+        "spread": 18.3,
+        "atm_iv": 40.3,
+        "tilt": "CALL",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 23.7,
         "classification": "IGNORE",
@@ -1995,6 +2151,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 40.0,
         "classification": "IGNORE",
@@ -2112,6 +2269,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 35.2,
         "classification": "IGNORE",
@@ -2227,6 +2385,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 28.8,
         "classification": "IGNORE",
@@ -2339,6 +2498,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 30.6,
         "classification": "IGNORE",
@@ -2454,6 +2614,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 31.6,
         "classification": "IGNORE",
@@ -2567,6 +2728,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 27.4,
         "classification": "IGNORE",
@@ -2681,6 +2843,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 31.3,
         "classification": "IGNORE",
@@ -2794,6 +2957,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 31.3,
         "classification": "IGNORE",
@@ -2907,6 +3071,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 17.1,
         "classification": "IGNORE",
@@ -3024,6 +3189,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 17.7,
         "classification": "IGNORE",
@@ -3139,6 +3305,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 17.3,
         "classification": "IGNORE",
@@ -3257,6 +3424,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 17.2,
         "classification": "IGNORE",
@@ -3371,6 +3539,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 20.4,
         "classification": "IGNORE",
@@ -3485,6 +3654,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 25.8,
+        "vol_oi": 0.17,
+        "call_vol": 152,
+        "put_vol": 30,
+        "pcr": 0.2,
+        "spread": 41.8,
+        "atm_iv": 26.1,
+        "tilt": "CALL",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 20.2,
         "classification": "IGNORE",
@@ -3624,6 +3805,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 17.2,
         "classification": "IGNORE",
@@ -3741,6 +3923,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 17.7,
         "classification": "IGNORE",
@@ -3858,6 +4041,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 17.7,
+        "vol_oi": 0.06,
+        "call_vol": 18,
+        "put_vol": 0,
+        "pcr": 0.0,
+        "spread": 36.5,
+        "atm_iv": 23.4,
+        "tilt": "CALL",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 16.8,
         "classification": "IGNORE",
@@ -4001,6 +4196,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": {
+        "score": 40.1,
+        "vol_oi": 0.27,
+        "call_vol": 1212,
+        "put_vol": 1300,
+        "pcr": 1.07,
+        "spread": 12.0,
+        "atm_iv": 46.5,
+        "tilt": "neutral",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 16.9,
         "classification": "IGNORE",
@@ -4144,6 +4351,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 18.1,
         "classification": "IGNORE",
@@ -4262,6 +4470,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 17.6,
         "classification": "IGNORE",
@@ -4378,6 +4587,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 16.9,
         "classification": "IGNORE",
@@ -4495,6 +4705,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 18.3,
         "classification": "IGNORE",
@@ -4609,6 +4820,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 16.4,
         "classification": "IGNORE",
@@ -4727,6 +4939,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 17.0,
         "classification": "IGNORE",
@@ -4845,6 +5058,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 24.6,
         "classification": "IGNORE",
@@ -4962,6 +5176,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 22.3,
         "classification": "IGNORE",
@@ -5074,6 +5289,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 24.9,
         "classification": "IGNORE",
@@ -5186,6 +5402,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 17.1,
         "classification": "IGNORE",
@@ -5300,6 +5517,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 36.1,
         "classification": "IGNORE",
@@ -5411,6 +5629,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 42.3,
         "classification": "IGNORE",
@@ -5523,6 +5742,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 21.1,
         "classification": "IGNORE",
@@ -5642,6 +5862,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 40.5,
         "classification": "IGNORE",
@@ -5755,6 +5976,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 21.0,
         "classification": "IGNORE",
@@ -5873,6 +6095,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 27.0,
         "classification": "IGNORE",
@@ -5982,6 +6205,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 16.8,
         "classification": "IGNORE",
@@ -6097,6 +6321,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 16.8,
         "classification": "IGNORE",
@@ -6214,6 +6439,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 40.2,
         "classification": "IGNORE",
@@ -6328,6 +6554,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 40.0,
         "classification": "IGNORE",
@@ -6439,6 +6666,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 45.2,
         "classification": "IGNORE",
@@ -6554,6 +6782,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 34.0,
         "classification": "IGNORE",
@@ -6661,6 +6890,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 55.5,
         "classification": "IGNORE",
@@ -6776,6 +7006,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 50.7,
         "classification": "IGNORE",
@@ -6890,6 +7121,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 40.2,
         "classification": "IGNORE",
@@ -6999,6 +7231,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 52.4,
         "classification": "IGNORE",
@@ -7112,6 +7345,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 50.5,
         "classification": "IGNORE",
@@ -7224,6 +7458,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 40.2,
         "classification": "IGNORE",
@@ -7334,6 +7569,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 41.7,
         "classification": "IGNORE",
@@ -7444,6 +7680,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 52.4,
         "classification": "IGNORE",
@@ -7557,6 +7794,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 51.8,
         "classification": "IGNORE",
@@ -7667,6 +7905,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 51.9,
         "classification": "IGNORE",
@@ -7780,6 +8019,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 49.2,
         "classification": "IGNORE",
@@ -7893,6 +8133,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 53.7,
         "classification": "IGNORE",
@@ -8006,6 +8247,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 44.3,
         "classification": "IGNORE",
@@ -8117,6 +8359,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 39.2,
         "classification": "IGNORE",
@@ -8228,6 +8471,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 42.8,
         "classification": "IGNORE",
@@ -8338,6 +8582,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 44.9,
         "classification": "IGNORE",
@@ -8451,6 +8696,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 53.6,
         "classification": "IGNORE",
@@ -8562,6 +8808,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 43.4,
         "classification": "IGNORE",
@@ -8673,6 +8920,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": false,
+      "flow": null,
       "bearish": {
         "final": 59.3,
         "classification": "IGNORE",
@@ -8782,6 +9030,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 46.8,
         "classification": "IGNORE",
@@ -8893,6 +9142,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 50.1,
         "classification": "IGNORE",
@@ -9005,6 +9255,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 51.6,
         "classification": "IGNORE",
@@ -9115,6 +9366,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 61.0,
         "classification": "IGNORE",
@@ -9227,6 +9479,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "PUT",
       "bear_only": true,
+      "flow": {
+        "score": 38.7,
+        "vol_oi": 0.3,
+        "call_vol": 397,
+        "put_vol": 119,
+        "pcr": 0.3,
+        "spread": 11.8,
+        "atm_iv": 34.9,
+        "tilt": "CALL",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 60.1,
         "classification": "EXC",
@@ -9357,6 +9621,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 67.0,
         "classification": "WATCH",
@@ -9470,6 +9735,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 65.7,
         "classification": "WATCH",
@@ -9583,6 +9849,18 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "PUT",
       "bear_only": true,
+      "flow": {
+        "score": 43.6,
+        "vol_oi": 0.13,
+        "call_vol": 1021,
+        "put_vol": 408,
+        "pcr": 0.4,
+        "spread": 5.4,
+        "atm_iv": 45.0,
+        "tilt": "CALL",
+        "expiry": "2026-07-17",
+        "unusual": false
+      },
       "bearish": {
         "final": 62.1,
         "classification": "EXC",
@@ -9713,6 +9991,7 @@ window.SCAN_DATA = {
       "event_trade_allowed": false,
       "direction": "CALL",
       "bear_only": true,
+      "flow": null,
       "bearish": {
         "final": 61.2,
         "classification": "IGNORE",

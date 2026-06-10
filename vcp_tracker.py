@@ -265,6 +265,7 @@ class M:
     bear_only: bool = False        # from the weakness/laggard universe (PUT side only)
     put_exceptional: bool = False  # counter-market stock-specific breakdown path
     bear_warnings: list[str] = field(default_factory=list)
+    flow: dict | None = None       # options-flow confirmation (flow.chain_flow)
 
     # context / flags
     contractions: list[float] = field(default_factory=list)
@@ -1955,7 +1956,7 @@ def metric_to_dict(m: M) -> dict:
         "event_risk_level": m.event_risk_level, "adjusted_final_score": m.adjusted_final_score,
         "position_size_multiplier": m.position_size_multiplier,
         "event_trade_allowed": m.event_trade_allowed,
-        "direction": m.direction, "bear_only": m.bear_only,
+        "direction": m.direction, "bear_only": m.bear_only, "flow": m.flow,
         "bearish": {
             "final": m.bearish_final, "classification": m.bearish_classification,
             "exceptional": m.put_exceptional,
@@ -2396,6 +2397,20 @@ def main() -> int:
     for m in metrics:
         if m.bear_only and m.direction != "PUT":
             m.group = "AVOID"
+
+    # Options-flow confirmation (informational) for names with a contract.
+    try:
+        import flow as flow_mod
+        flow_targets = [m for m in metrics if m.option or m.put_option][:20]
+        if flow_targets:
+            print(f"  Options-flow check on {len(flow_targets)} names ...", file=sys.stderr)
+            with ThreadPoolExecutor(max_workers=3) as ex:
+                for m, f in ex.map(lambda mm: (mm, flow_mod.chain_flow(mm.ticker, mm.price,
+                                                                       args.min_dte, args.max_dte)),
+                                   flow_targets):
+                    m.flow = f
+    except Exception as exc:  # noqa: BLE001
+        print(f"  ! Flow check skipped ({exc}).", file=sys.stderr)
 
     watchlist = metrics[:20]
     active_all = [m for m in metrics if m.group == "ACTIVE"]
