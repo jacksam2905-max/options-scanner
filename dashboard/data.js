@@ -1,5 +1,5 @@
 window.SCAN_DATA = {
-  "generated": "2026-06-09 22:41:58",
+  "generated": "2026-06-09 22:50:12",
   "data_date": "2026-06-09",
   "score_mode": "best",
   "account_size": 50000.0,
@@ -278,11 +278,11 @@ window.SCAN_DATA = {
         "Exit or roll if < 14 DTE remaining"
       ],
       "sentiment": {
-        "score": 66.7,
+        "score": 67.2,
         "verdict": "CONFIRMS",
         "news_sent": 48.6,
         "news_count": 25,
-        "reddit_sent": 84.8,
+        "reddit_sent": 85.7,
         "reddit_count": 50,
         "reddit_mentions": 47,
         "headlines": [
@@ -586,9 +586,9 @@ window.SCAN_DATA = {
         "Exit or roll if < 14 DTE remaining"
       ],
       "sentiment": {
-        "score": 50.3,
+        "score": 51.5,
         "verdict": "NEUTRAL",
-        "news_sent": 51.4,
+        "news_sent": 53.8,
         "news_count": 25,
         "reddit_sent": 49.2,
         "reddit_count": 50,
@@ -898,9 +898,9 @@ window.SCAN_DATA = {
         "Exit or roll if < 14 DTE remaining"
       ],
       "sentiment": {
-        "score": 69.0,
+        "score": 67.7,
         "verdict": "CONFIRMS",
-        "news_sent": 84.1,
+        "news_sent": 81.4,
         "news_count": 25,
         "reddit_sent": 54.0,
         "reddit_count": 39,

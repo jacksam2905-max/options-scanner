@@ -148,6 +148,31 @@ tr.det.show .det-in{display:grid}
 .flag.a{color:var(--cyan)} .flag.a::before{background:var(--cyan)}
 .head{font-size:11.5px;color:var(--dim);margin-top:8px;font-style:italic}
 
+/* ---- UOA cards ---- */
+.ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.ucard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+.ucard.uon{border-color:var(--green);box-shadow:0 0 0 1px rgba(63,185,80,.25)}
+.uhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.upx{margin-left:auto;font-weight:600;font-size:13px}
+.uscore{display:flex;align-items:center;gap:10px;margin:10px 0 8px}
+.uscore .sbar{flex:1;height:8px;border-radius:4px;background:#0d1117;overflow:hidden;border:1px solid var(--line2)}
+.uscore .sbar>i{display:block;height:100%}
+.uscore .sv{font-size:17px;font-weight:800;min-width:40px;text-align:right}
+.ustats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:9px}
+.ustat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+.ustat .k{font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.3px}
+.ustat .v{font-size:12.5px;font-weight:700}
+.uexp{font-size:11px;color:var(--mut);margin-bottom:9px}
+.ustand h5{margin:0 0 6px;font-size:10px;letter-spacing:.5px;color:var(--dim);text-transform:uppercase}
+.urow{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:#10151d;font-size:12px;flex-wrap:wrap}
+.ctag{font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;letter-spacing:.4px}
+.ctag.c{background:rgba(63,185,80,.16);color:var(--green)}
+.ctag.p{background:rgba(248,81,73,.16);color:var(--red)}
+.urow .ks{font-weight:800;font-size:13.5px}
+.urow .meta{color:var(--mut);font-size:11px}
+.urow .xmult{margin-left:auto;font-weight:800;color:var(--amber);font-size:12.5px}
+.unone{color:var(--dim);font-size:11.5px;padding:4px 0}
+
 /* modal + toast (clean) */
 .modal{position:fixed;inset:0;background:rgba(1,4,9,.7);display:none;align-items:center;justify-content:center;z-index:100}
 .modal.show{display:flex}
@@ -222,7 +247,8 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;margin-top:22px;line-
   <div class="tabs" id="tabs"></div>
   <div class="hint" id="hint"></div>
 
-  <div class="card"><div style="overflow-x:auto"><table id="tbl"></table></div></div>
+  <div class="card" id="tblCard"><div style="overflow-x:auto"><table id="tbl"></table></div></div>
+  <div id="uoaCards" style="display:none"></div>
   <div class="legend">
     <b>Final</b> blended score 0–100 · <b>Class</b>
     <span class="lg bg-Ap">A+</span> all filters aligned
@@ -347,7 +373,9 @@ function valOf(t,k){
 function sortBy(k){ if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=-1;} render(); }
 
 function render(){
-  if(tab==="uoa"){ renderUOA(); return; }
+  const tc=document.getElementById("tblCard"), uc=document.getElementById("uoaCards");
+  if(tab==="uoa"){ tc.style.display="none"; uc.style.display="block"; renderUOA(); return; }
+  tc.style.display=""; uc.style.display="none";
   const list=rows();
   const isPattern=!["top","master","puts"].includes(tab);
   const strat = isPattern ? D.patterns.find(p=>p.key===tab).label : null;
@@ -703,38 +731,49 @@ function runUOA(btn){
 function renderUOA(){
   const U=window.UOA;
   document.getElementById("hint").innerHTML =
-    `Standalone Unusual Options Activity — separate universe (leaders + laggards + most-active option names), `+
-    `backtest: PUT-side spikes +12pp edge vs baseline, CALL-side ~none — weight put flow more · `+
-    `front expiry, rubric: ${U?U.weights:"30% vol/OI · 20% IV · 20% volume · 15% |Δprice| · 15% spread"} · `+
+    `Standalone Unusual Options Activity — own universe (leaders + laggards + most-active option names). `+
+    `Backtest: PUT-side spikes +12pp edge vs baseline; CALL-side ~none. `+
     `<button class="getopt" onclick="runUOA(this)">↻ Run UOA scan</button>`+
-    (U?` <span style="color:var(--dim)">last run ${U.generated} · ${U.count} names</span>`:"");
-  const head=`<thead><tr><th>Ticker</th><th class="r">Price</th><th class="r">Δ%</th>
-    <th>Dir</th><th class="r">UOA score</th><th class="r">Vol/OI</th><th class="r">Call vol</th>
-    <th class="r">Put vol</th><th class="r">P/C</th><th class="r">IV</th><th class="r">Spread</th>
-    <th>Standout contracts (vol≥500 & vol/OI≥2)</th></tr></thead>`;
+    (U?` <span style="color:var(--dim)">last run ${U.generated} · ${U.count} names · rubric ${U.weights}</span>`:"");
+  const uc=document.getElementById("uoaCards");
   if(!U||!U.rows||!U.rows.length){
-    document.getElementById("tbl").innerHTML=head+`<tbody><tr><td colspan="12"><div class="empty">No UOA data yet — hit “Run UOA scan” (takes ~1-2 min; cached 15 min).</div></td></tr></tbody>`;
+    uc.innerHTML=`<div class="empty">No UOA data yet — hit "Run UOA scan" (takes ~1-2 min; cached 15 min).</div>`;
     if(!window._uoaTried){ window._uoaTried=true; loadUOA(false); }
     return;
   }
-  const body=U.rows.slice(0,40).map(r=>{
+  const list=U.rows.slice().sort((a,b)=>(b.unusual-a.unusual)||(b.score-a.score)).slice(0,36);
+  uc.innerHTML=`<div class="ugrid">`+list.map(r=>{
+    const chgcol=r.chg_pct>=0?'var(--green)':'var(--red)';
     const dirb=`<span class="dirb ${r.direction==='PUT'?'dir-put':r.direction==='CALL'?'dir-call':''}" ${r.direction==='mixed'?'style="background:var(--panel2);color:var(--mut)"':''}>${r.direction}</span>`;
-    const st=(r.standouts||[]).map(s=>`<span class="chip" title="last ${s.last} Δ${s.delta}">${s.type==='call'?'C':'P'}$${s.strike} v${s.vol.toLocaleString()}/oi${s.oi.toLocaleString()} (${s.vol_oi}x)</span>`).join(" ")||'<span style="color:var(--dim)">—</span>';
-    return `<tr class="row" style="cursor:default">
-      <td><span class="tk">${r.ticker}</span>${r.unusual?'<span class="badge bg-Ap" style="margin-left:6px">UNUSUAL</span>':''}</td>
-      <td class="r mono">${usd(r.price)}</td>
-      <td class="r mono" style="color:${r.chg_pct>=0?'var(--green)':'var(--red)'}">${r.chg_pct>=0?'+':''}${r.chg_pct}%</td>
-      <td>${dirb}</td>
-      <td class="r"><div class="fin"><span class="bar"><i style="width:${r.score}%;background:${sc(r.score)}"></i></span><span class="v mono" style="color:${sc(r.score)}">${r.score}</span></div></td>
-      <td class="r mono" style="font-weight:${r.vol_oi>=1?'700':'400'}">${r.vol_oi}</td>
-      <td class="r mono">${r.call_vol.toLocaleString()}</td>
-      <td class="r mono">${r.put_vol.toLocaleString()}</td>
-      <td class="r mono">${r.pcr}</td>
-      <td class="r mono">${r.atm_iv}%</td>
-      <td class="r mono">${r.spread}%</td>
-      <td>${st}</td></tr>`;
-  }).join("");
-  document.getElementById("tbl").innerHTML=head+`<tbody>${body}</tbody>`;
+    const stats=[["Vol/OI",r.vol_oi,r.vol_oi>=1?'var(--green)':'var(--txt)'],
+                 ["Call vol",r.call_vol.toLocaleString(),'var(--txt)'],
+                 ["Put vol",r.put_vol.toLocaleString(),'var(--txt)'],
+                 ["P/C ratio",r.pcr,r.pcr>1.4?'var(--red)':r.pcr<0.7?'var(--green)':'var(--txt)'],
+                 ["ATM IV",r.atm_iv+"%",'var(--txt)'],
+                 ["Spread",r.spread+"%",'var(--txt)']]
+      .map(([k,v,c])=>`<div class="ustat"><div class="k">${k}</div><div class="v mono" style="color:${c}">${v}</div></div>`).join("");
+    const standRows=(r.standouts||[]).map(st=>
+      `<div class="urow">
+         <span class="ctag ${st.type==='call'?'c':'p'}">${st.type==='call'?'CALL':'PUT'}</span>
+         <span class="ks mono">$${st.strike}</span>
+         <span class="meta mono">exp ${shortExp(r.expiry)} · ${r.dte} DTE</span>
+         <span class="meta mono">vol ${st.vol.toLocaleString()} / OI ${st.oi.toLocaleString()}</span>
+         <span class="meta mono">last ${usd(st.last)} · Δ${st.delta}</span>
+         <span class="xmult">${st.vol_oi}×</span>
+       </div>`).join("") || `<div class="unone">no standout contracts (vol ≥500 & vol/OI ≥2)</div>`;
+    return `<div class="ucard ${r.unusual?'uon':''}">
+      <div class="uhead">
+        <span class="tk">${r.ticker}</span>
+        ${r.unusual?'<span class="badge bg-Ap">UNUSUAL</span>':''}
+        ${dirb}
+        <span class="upx mono">${usd(r.price)} <b style="color:${chgcol}">${r.chg_pct>=0?'+':''}${r.chg_pct}%</b></span>
+      </div>
+      <div class="uscore"><span class="sbar"><i style="width:${r.score}%;background:${sc(r.score)}"></i></span><span class="sv mono" style="color:${sc(r.score)}">${r.score}</span></div>
+      <div class="ustats">${stats}</div>
+      <div class="uexp">Front expiry scanned: <b>${shortExp(r.expiry)}</b> (${r.dte} DTE) · strikes ±15% of spot</div>
+      <div class="ustand"><h5>Standout contracts</h5>${standRows}</div>
+    </div>`;
+  }).join("")+`</div>`+(U.rows.length>36?`<div class="unone" style="margin-top:10px">showing top 36 of ${U.rows.length} — full list ranked by score, UNUSUAL first</div>`:"");
 }
 
 function boot(){
