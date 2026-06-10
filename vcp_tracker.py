@@ -63,6 +63,7 @@ UNIVERSE_META: dict[str, tuple[str, str]] = {
     "NFLX": ("Netflix", "High-Beta"),
 }
 UNIVERSE = list(UNIVERSE_META.keys())
+BEAR_UNIVERSE: list[str] = []        # weakness/laggard list — PUT side only
 BENCHMARKS = ["SPY", "QQQ", "IWM"]
 VIX_SYMBOL = "^VIX"
 RISK_FREE = 0.04
@@ -73,8 +74,10 @@ TRADIER_TOKEN = os.environ.get("TRADIER_TOKEN", "")
 TRADIER_BASE = os.environ.get("TRADIER_BASE", "https://api.tradier.com/v1")
 OPTIONS_SOURCE = os.environ.get("OPTIONS_SOURCE", "auto")  # auto | tradier | yahoo
 OHLCV_SOURCE = os.environ.get("OHLCV_SOURCE", "auto")      # auto | tradier | yahoo
+# Committed (project root, not reports/) so the cloud ships with real earnings
+# dates even when Yahoo blocks the datacenter IP. Yahoo updates it when reachable.
 EARN_CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               "reports", "earnings_cache.json")
+                               "earnings_cache.json")
 
 # Each ticker -> sector ETF used for sector-strength + relative-strength.
 TICKER_ETF: dict[str, str] = {
@@ -91,16 +94,20 @@ ETF_NAME = {"SMH": "Semiconductors", "CIBR": "Cybersecurity", "IGV": "Software",
             "XLK": "Technology", "XLC": "Communication", "XLY": "Consumer Disc.",
             "XLF": "Financials"}
 
-# Pattern-score (layer 3) internal weights for the 7 detectors + trend.
+# Pattern-score (layer 3) internal weights for the 8 detectors + trend.
+# Backtest-rebalanced: PocketPivot demoted (weakest, 59% win) to fund
+# Cup-with-Handle (strongest candidate, 87% win / +1.60R in the lab).
 WEIGHTS = {
-    "vcp": 0.25, "pocket": 0.15, "tight_weekly": 0.15, "flat_base": 0.10,
-    "htf": 0.10, "three_weeks": 0.10, "ma_bounce": 0.10, "trend": 0.05,
+    "vcp": 0.25, "pocket": 0.10, "tight_weekly": 0.10, "flat_base": 0.10,
+    "htf": 0.10, "three_weeks": 0.10, "ma_bounce": 0.10, "cup_handle": 0.10,
+    "trend": 0.05,
 }
 PATTERN_FIELDS = ("vcp", "pocket", "tight_weekly", "flat_base", "htf",
-                  "three_weeks", "ma_bounce")
+                  "three_weeks", "ma_bounce", "cup_handle")
 PATTERN_LABELS = {"vcp": "VCP", "pocket": "Pocket Pivot", "tight_weekly": "Tight Weekly",
                   "flat_base": "Flat Base", "htf": "High Tight Flag",
-                  "three_weeks": "3-Weeks-Tight", "ma_bounce": "MA Bounce"}
+                  "three_weeks": "3-Weeks-Tight", "ma_bounce": "MA Bounce",
+                  "cup_handle": "Cup w/ Handle"}
 
 # Final Trade Score weights (Step 6).
 FINAL_WEIGHTS = {"market": 0.30, "sector": 0.20, "pattern": 0.20,
@@ -132,20 +139,22 @@ def apply_universe(refresh: bool = False):
     """Replace the fixed 27-ticker source with the dynamic leadership universe.
     ONLY the ticker source (UNIVERSE + its company/sector/ETF lookups) changes;
     every downstream step is identical. Any failure -> keep the hardcoded 27."""
-    global UNIVERSE, UNIVERSE_META, TICKER_ETF, SECTOR_ETFS, ETF_NAME
+    global UNIVERSE, BEAR_UNIVERSE, UNIVERSE_META, TICKER_ETF, SECTOR_ETFS, ETF_NAME
     try:
         import universe
         res = universe.load_universe_for_scanner(refresh=refresh)
         if not res or len(res["tickers"]) < 10:
             raise RuntimeError("universe empty/too small")
         UNIVERSE = res["tickers"]
+        BEAR_UNIVERSE = res.get("bear_tickers", [])
         UNIVERSE_META = res["meta"]
         TICKER_ETF = res["ticker_etf"]
         SECTOR_ETFS = res["sector_etfs"]
         ETF_NAME = {**ETF_NAME, **res["etf_name"]}
-        print(f"  Universe: {len(UNIVERSE)} dynamic leadership tickers "
-              f"(generated {res['generated']})", file=sys.stderr)
+        print(f"  Universe: {len(UNIVERSE)} leadership + {len(BEAR_UNIVERSE)} "
+              f"laggard (put-side) tickers (generated {res['generated']})", file=sys.stderr)
     except Exception as exc:  # noqa: BLE001
+        BEAR_UNIVERSE = []
         print(f"  ! Dynamic universe generation failed ({exc}). "
               f"Using fallback ticker list ({len(UNIVERSE)}).", file=sys.stderr)
 
@@ -204,6 +213,7 @@ class M:
     htf: float = 0.0
     three_weeks: float = 0.0
     ma_bounce: float = 0.0
+    cup_handle: float = 0.0
     combined: float = 0.0          # = Pattern Score
     best_pattern: str = ""
     detected_patterns: list[str] = field(default_factory=list)
@@ -252,6 +262,8 @@ class M:
     put_contracts: int = 0
     put_position_note: str = ""
     direction: str = "CALL"        # primary opportunity direction for this name
+    bear_only: bool = False        # from the weakness/laggard universe (PUT side only)
+    put_exceptional: bool = False  # counter-market stock-specific breakdown path
     bear_warnings: list[str] = field(default_factory=list)
 
     # context / flags
@@ -444,11 +456,13 @@ def build_metrics(ticker: str, df: pd.DataFrame, bench: dict[str, pd.Series],
     m.htf = score_high_tight_flag(m)
     m.three_weeks = score_three_weeks_tight(m)
     m.ma_bounce = score_ma_bounce(m)
+    m.cup_handle = score_cup_handle(m)
     m.combined = compute_combined(m, score_mode)
 
     pats = {"VCP": m.vcp, "PocketPivot": m.pocket, "TightWeekly": m.tight_weekly,
             "FlatBase": m.flat_base, "HighTightFlag": m.htf,
-            "3WeeksTight": m.three_weeks, "MA-Bounce": m.ma_bounce}
+            "3WeeksTight": m.three_weeks, "MA-Bounce": m.ma_bounce,
+            "CupHandle": m.cup_handle}
     m.best_pattern = max(pats, key=pats.get)
     m.detected_patterns = [PATTERN_LABELS[f] for f in PATTERN_FIELDS if getattr(m, f) >= 60]
     return m
@@ -672,6 +686,42 @@ def score_ma_bounce(m: M) -> float:
 
 
 # --------------------------------------------------------------------------
+# Pattern 8: Cup with Handle (backtest-validated addition: 87% win / +1.60R)
+# --------------------------------------------------------------------------
+def score_cup_handle(m: M) -> float:
+    """O'Neil classic: 12-35% cup over ~6 months, right side rebuilt to near
+    the rim, then a short quiet-volume handle drifting down. Entry = handle high."""
+    c = m.df["Close"]
+    if len(c) < 130 or m.price < m.sma200:
+        return 0.0
+    win = c.tail(120)
+    rim = float(win.max())
+    rim_pos = int(np.argmax(win.to_numpy()))
+    after = win.iloc[rim_pos:]
+    if len(after) < 25 or rim <= 0:
+        return 0.0                       # rim too recent: no time for cup + handle
+    trough = float(after.min())
+    depth = (rim - trough) / rim * 100
+    s = 0.0
+    if 12 <= depth <= 35:
+        s += 30                          # proper cup depth
+    elif 8 <= depth < 12:
+        s += 15
+    if rim * 0.90 <= m.price < rim:
+        s += 20                          # right side rebuilt, below the rim
+    handle = c.tail(8)
+    hh = float(handle.max())
+    drift = (hh - m.price) / hh * 100 if hh else 99
+    if 0 < drift <= 10:
+        s += 15                          # handle drifting down, not breaking
+    if float(m.df["Volume"].tail(8).mean()) < float(m.df["Volume"].tail(40).mean()):
+        s += 20                          # quiet handle volume
+    if m.price > m.sma50:
+        s += 15
+    return float(np.clip(s, 0, 100))
+
+
+# --------------------------------------------------------------------------
 # Filter layer 1: Market Regime
 # --------------------------------------------------------------------------
 @dataclass
@@ -860,6 +910,10 @@ def classify(m: M, allow_earnings: bool) -> str:
               and not m.extension_flag and near_entry)
     if a_plus:
         return "A+"
+    # Backtest-validated (V1): extended entries won 63% vs 79% for non-extended.
+    # Extended names are watch-only (B) — wait for the pullback/retest.
+    if m.extension_flag:
+        return "B"
     if m.final_score >= 75:   # >=85 but missing an A+ gate also lands here
         return "A"
     return "B"                # 65-74
@@ -874,6 +928,12 @@ def levels(m: M, atr_mult: float = 1.5):
              min(m.ema21, m.sma50)]
     cands = [c for c in cands if 0 < c < entry]
     stop = max(cands) if cands else entry - atr_mult * m.atr14
+    # Backtest-validated (V4/V11): tightest-of stops get shaken out. Floor the
+    # stop at 2*ATR below entry — never tighter (win rate 68%->72-77%).
+    if m.atr14 > 0:
+        stop = min(stop, entry - 2.0 * m.atr14)
+    if stop <= 0:
+        stop = entry * 0.92
     risk = entry - stop
     target = entry + 2 * risk if risk > 0 else entry + (entry - m.base_low)
     rr = (target - entry) / risk if risk > 0 else 0.0
@@ -915,9 +975,11 @@ def build_exit_plan(m: M):
         return
     prem = m.option["premium"]
     plan = [
+        "ENTRY RULE: take the breakout only on volume > 1.2x 20-day avg (backtested)",
         f"Stop: option premium -30 to -40% (~${prem*0.65:.2f})",
         f"Trim 50% at +50% (~${prem*1.5:.2f}); move remaining stop to breakeven",
-        f"Sell rest at +100% (~${prem*2:.2f}) or on trailing stop",
+        f"Sell rest at +100% (~${prem*2:.2f}) or trail the runner toward 3R "
+        "(backtest favors letting it run)",
         f"Exit if stock closes below pivot ${m.pivot:.2f} after breakout",
         f"Consider exit if stock closes below 21 EMA ${m.ema21:.2f}",
         "Exit or roll if < 14 DTE remaining",
@@ -934,6 +996,13 @@ def build_alerts(m: M):
         a.append("Within 2% below pivot")
     if m.dist_to_pivot < 0 and m.extension_flag == "":
         a.append("Broke above pivot")
+    # Backtest-validated (V3): breakouts on >1.2x avg volume win 73% vs 68%;
+    # weak-volume triggers should be skipped.
+    if m.entry > 0 and float(m.df["High"].iloc[-1]) >= m.entry:
+        if m.vol_vs_avg >= 20:
+            a.append(f"Entry triggered TODAY with volume confirmation (+{m.vol_vs_avg:.0f}% vs avg)")
+        else:
+            a.append("Entry triggered today on WEAK volume — skip unless volume exceeds 1.2x avg")
     if m.vol_vs_avg >= 40:
         a.append(f"Volume {m.vol_vs_avg:.0f}% above 20-day avg")
     if m.pocket >= 70:
@@ -1087,6 +1156,13 @@ def fetch_all_earnings(tickers: list[str]) -> dict[str, tuple[str, int | None]]:
               file=sys.stderr)
         with ThreadPoolExecutor(max_workers=8) as ex:
             for t, (ed, days) in ex.map(lambda x: (x, fetch_earnings(x)), to_fetch):
+                # don't let a failed (blocked) fetch wipe a previously-known date
+                if ed == "unknown":
+                    prev = cache.get(t, {}).get("date")
+                    if prev and prev != "unknown":
+                        ed = prev
+                        days = ((dt.date.fromisoformat(ed) - today).days
+                                if ed != "unknown" else None)
                 out[t] = (ed, days)
                 cache[t] = {"date": ed, "fetched": today_iso}
         try:
@@ -1701,9 +1777,12 @@ def position_size_put(m: M, account: float, max_risk_pct: float, max_prem_loss: 
 
 def build_bear_warnings(m: M):
     w = []
+    if m.put_exceptional:
+        w.insert(0, "EXCEPTIONAL stock-specific breakdown (counter-market): half size, "
+                    "tight management.")
     if m.do_not_chase_put:
         w.append("Bearish trend valid, but too extended for new put entry — wait for bounce/retest.")
-    if m.bear_market_score < 40:
+    if m.bear_market_score < 40 and not m.put_exceptional:
         w.append(f"Market not bearish ({m.bear_market_score:.0f}/100) — avoid puts unless exceptional.")
     elif m.bear_market_score < 60:
         w.append(f"Only mildly bearish market ({m.bear_market_score:.0f}/100) — A+ put setups only, smaller size.")
@@ -1719,12 +1798,22 @@ def build_bear_warnings(m: M):
 
 
 def assign_direction(metrics: list[M]):
-    """Primary opportunity direction per name for the master ranking."""
+    """Primary opportunity direction per name for the master ranking.
+
+    Two PUT paths (both backtest-validated):
+      normal:      bearish_final >= 75 (confirmed bearish market + setup)
+      exceptional: stock-specific breakdown despite a non-bearish market
+                   (spec §11; lab G3 gate: 52% win / +0.55R on laggards) —
+                   pattern>=65 & rel-weak>=70 & below 50DMA & final>=60,
+                   never into earnings or an oversold chase. Half size."""
     for m in metrics:
-        bull_ok = m.final_score >= 65 and not m.below_200
-        bear_ok = (m.bearish_final >= 75 and not m.do_not_chase_put
-                   and not m.earnings_within_7d)
-        m.direction = "PUT" if (bear_ok and (m.bearish_final >= m.final_score or not bull_ok)) else "CALL"
+        bull_ok = (m.final_score >= 65 and not m.below_200 and not m.bear_only)
+        exceptional = (m.bearish_pattern_score >= 65 and m.bear_rel_weakness >= 70
+                       and m.price < m.sma50 and m.bearish_final >= 60)
+        bear_ok = ((m.bearish_final >= 75 or exceptional)
+                   and not m.do_not_chase_put and not m.earnings_within_7d)
+        m.put_exceptional = bool(bear_ok and exceptional and m.bearish_final < 75)
+        m.direction = "PUT" if (bear_ok and (not bull_ok or m.bearish_final >= m.final_score)) else "CALL"
 
 
 # --------------------------------------------------------------------------
@@ -1866,9 +1955,10 @@ def metric_to_dict(m: M) -> dict:
         "event_risk_level": m.event_risk_level, "adjusted_final_score": m.adjusted_final_score,
         "position_size_multiplier": m.position_size_multiplier,
         "event_trade_allowed": m.event_trade_allowed,
-        "direction": m.direction,
+        "direction": m.direction, "bear_only": m.bear_only,
         "bearish": {
             "final": m.bearish_final, "classification": m.bearish_classification,
+            "exceptional": m.put_exceptional,
             "pattern_score": m.bearish_pattern_score, "market": m.bear_market_score,
             "sector": m.bear_sector_score, "rel_weakness": m.bear_rel_weakness,
             "liq": m.bear_liq_score, "best_pattern": m.bear_best_pattern,
@@ -1888,7 +1978,8 @@ def metric_to_dict(m: M) -> dict:
                    "earn": m.earn_score},
         "pattern_scores": {"vcp": m.vcp, "pocket": m.pocket, "tight_weekly": m.tight_weekly,
                            "flat_base": m.flat_base, "htf": m.htf,
-                           "three_weeks": m.three_weeks, "ma_bounce": m.ma_bounce},
+                           "three_weeks": m.three_weeks, "ma_bounce": m.ma_bounce,
+                           "cup_handle": m.cup_handle},
         "pivot": m.pivot, "entry": m.entry, "stop": m.stop, "target": m.target, "rr": m.rr,
         "ema21": m.ema21, "below_200": m.below_200, "vol_vs_avg": m.vol_vs_avg,
         "dist_to_pivot": round(m.dist_to_pivot, 2), "extension_flag": m.extension_flag,
@@ -2148,7 +2239,7 @@ def main() -> int:
     print(f"  Options source: {eff_src}"
           + ("" if TRADIER_TOKEN or eff_src == "yahoo" else " (no TRADIER_TOKEN set)"), file=sys.stderr)
 
-    all_symbols = UNIVERSE + BENCHMARKS + SECTOR_ETFS + [VIX_SYMBOL]
+    all_symbols = UNIVERSE + BEAR_UNIVERSE + BENCHMARKS + SECTOR_ETFS + [VIX_SYMBOL]
     histories = fetch_histories(all_symbols)
     bench = {b: histories[b]["Close"].astype(float)
              for b in BENCHMARKS + SECTOR_ETFS if b in histories}
@@ -2162,7 +2253,8 @@ def main() -> int:
     sectors = build_sector_table(bench)
 
     metrics: list[M] = []
-    for t in UNIVERSE:
+    bear_set = set(BEAR_UNIVERSE)
+    for t in UNIVERSE + BEAR_UNIVERSE:
         if t not in histories:
             continue
         try:
@@ -2171,6 +2263,7 @@ def main() -> int:
             print(f"    ! {t}: {exc}", file=sys.stderr)
             m = None
         if m:
+            m.bear_only = t in bear_set
             metrics.append(m)
     if not metrics:
         print("No data analyzed.", file=sys.stderr)
@@ -2200,7 +2293,8 @@ def main() -> int:
     # Fetch chains for the strongest names so the watchlist shows contracts.
     # Extended names ARE included (for watchlisting) — they still can't become
     # A+ (the extension gate blocks that); the contract is informational.
-    opt_targets = [m for m in metrics if not m.below_200 and m.liquid][:args.top_options]
+    opt_targets = [m for m in metrics if not m.below_200 and m.liquid
+                   and not m.bear_only][:args.top_options]
     if opt_targets:
         print("  Verifying live option chains for top setups ...", file=sys.stderr)
 
@@ -2230,8 +2324,8 @@ def main() -> int:
 
     # Sentiment on top non-rejected names.
     if args.sentiment and args.sentiment_top > 0:
-        sent_targets = [m for m in metrics
-                        if not m.classification.startswith("REJECT")][:args.sentiment_top]
+        sent_targets = [m for m in metrics if not m.bear_only
+                        and not m.classification.startswith("REJECT")][:args.sentiment_top]
         if sent_targets:
             print(f"  Confirming top {len(sent_targets)} names vs fresh news + Reddit ...",
                   file=sys.stderr)
@@ -2267,7 +2361,12 @@ def main() -> int:
         bsec = bearish.bearish_sector_table(bench, SECTOR_ETFS)
         for m in metrics:
             bearish.score_stock(m, bench, bmkt, bsec)
-        put_targets = [m for m in metrics if m.bearish_final >= 65 and not m.do_not_chase_put
+        # chains for: normally-bearish names OR exceptional stock breakdowns
+        put_targets = [m for m in metrics
+                       if (m.bearish_final >= 65
+                           or (m.bearish_pattern_score >= 65 and m.bear_rel_weakness >= 70
+                               and m.bearish_final >= 60))
+                       and not m.do_not_chase_put
                        and not m.earnings_within_7d][:args.top_options]
         if put_targets:
             print(f"  Verifying live PUT chains for top bearish setups ...", file=sys.stderr)
@@ -2279,14 +2378,24 @@ def main() -> int:
         for m in metrics:
             bearish.compute_final(m)
             m.bearish_classification = bearish.classify(m.bearish_final)
+        assign_direction(metrics)          # sets put_exceptional before sizing/warnings
+        for m in metrics:
+            if m.put_exceptional:          # counter-market breakdown: tag + half size
+                m.bearish_classification = "EXC"
             position_size_put(m, args.account_size, args.max_risk_pct, args.max_prem_loss,
-                              regime.size_factor)
+                              regime.size_factor * (0.5 if m.put_exceptional else 1.0))
             build_bear_warnings(m)
-        assign_direction(metrics)
         n_puts = sum(1 for m in metrics if m.direction == "PUT")
-        print(f"  Bearish: market {bmkt:.0f}/100, {n_puts} PUT candidate(s)", file=sys.stderr)
+        n_exc = sum(1 for m in metrics if m.put_exceptional)
+        print(f"  Bearish: market {bmkt:.0f}/100, {n_puts} PUT candidate(s)"
+              f" ({n_exc} exceptional counter-market)", file=sys.stderr)
     except Exception as exc:  # noqa: BLE001
         print(f"  ! Bearish scanner skipped ({exc}).", file=sys.stderr)
+
+    # Laggard-universe names exist ONLY for the put side — never call candidates.
+    for m in metrics:
+        if m.bear_only and m.direction != "PUT":
+            m.group = "AVOID"
 
     watchlist = metrics[:20]
     active_all = [m for m in metrics if m.group == "ACTIVE"]

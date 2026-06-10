@@ -391,8 +391,46 @@ def generate(limit: int | None = None) -> dict:
             }
 
     records = sorted(selected.values(), key=lambda x: -x["leadership_score"])
+
+    # ---- WEAKNESS (laggard) universe for the PUT side --------------------
+    # Backtest finding: puts on leaders lose (7-18% win); puts only worked on
+    # laggards (below 50DMA + lagging SPY) with the exceptional-breakdown gate.
+    bear_records = []
+    spy_c = hist.get("SPY")
+    spy63 = _ret(spy_c["Close"].astype(float), 63) if spy_c is not None else 0.0
+    for t in tickers:
+        df = hist.get(t)
+        if df is None or len(df) < 200:
+            continue
+        df = df.dropna(subset=["Close", "Volume"])
+        if len(df) < 200:
+            continue
+        close = df["Close"].astype(float)
+        price = float(close.iloc[-1])
+        if not math.isfinite(price) or price < 10:
+            continue
+        avgvol20 = float(df["Volume"].rolling(20).mean().iloc[-1])
+        if price * avgvol20 < 50_000_000:
+            continue
+        sma50 = _sma(close, 50)
+        if not (math.isfinite(sma50) and price < sma50):
+            continue
+        lag = _ret(close, 63) - spy63
+        if lag > -5:
+            continue                                   # must lag SPY by >5pp over 3m
+        weakness = round(-lag + (sma50 / price - 1) * 100, 1)
+        bear_records.append({"ticker": t, "company": cons[t][0],
+                             "gics_sector": cons[t][1], "etf": _gics_etf(cons[t][1]),
+                             "weakness_score": weakness,
+                             "generated_timestamp": ts})
+    bear_records.sort(key=lambda x: -x["weakness_score"])
+    bear_records = bear_records[:25]
+    print(f"  [universe] weakness list: {len(bear_records)} laggards for the put side",
+          file=sys.stderr)
+
     payload = {"generated_timestamp": ts, "count": len(records),
-               "weights": LEAD_WEIGHTS, "tickers": records}
+               "weights": LEAD_WEIGHTS, "tickers": records,
+               "bear_tickers": bear_records}
     with open(CACHE_PATH, "w") as fh:
         json.dump(payload, fh, indent=2)
     print(f"  [universe] selected {len(records)} tickers -> {CACHE_PATH}", file=sys.stderr)
@@ -415,7 +453,8 @@ def get_dynamic_leadership_universe(refresh: bool = False, limit: int | None = N
 
 
 def load_universe_for_scanner(refresh: bool = False, limit: int | None = None):
-    """Shape the universe for the scanner: ticker list + lookup maps."""
+    """Shape the universe for the scanner: ticker list + lookup maps
+    (+ the weakness/laggard list used by the PUT side)."""
     payload = get_dynamic_leadership_universe(refresh=refresh, limit=limit)
     recs = payload.get("tickers", [])
     if len(recs) < 10:
@@ -423,10 +462,14 @@ def load_universe_for_scanner(refresh: bool = False, limit: int | None = None):
     tickers = [r["ticker"] for r in recs]
     meta = {r["ticker"]: (r["company"], r["gics_sector"]) for r in recs}
     ticker_etf = {r["ticker"]: r["etf"] for r in recs}
-    sector_etfs = sorted({r["etf"] for r in recs})
+    bears = [r for r in payload.get("bear_tickers", []) if r["ticker"] not in set(tickers)]
+    bear_tickers = [r["ticker"] for r in bears]
+    meta.update({r["ticker"]: (r["company"], r["gics_sector"]) for r in bears})
+    ticker_etf.update({r["ticker"]: r["etf"] for r in bears})
+    sector_etfs = sorted(set(ticker_etf.values()))
     etf_name = {e: ETF_NAME.get(e, e) for e in sector_etfs}
-    return {"tickers": tickers, "meta": meta, "ticker_etf": ticker_etf,
-            "sector_etfs": sector_etfs, "etf_name": etf_name,
+    return {"tickers": tickers, "bear_tickers": bear_tickers, "meta": meta,
+            "ticker_etf": ticker_etf, "sector_etfs": sector_etfs, "etf_name": etf_name,
             "generated": payload.get("generated_timestamp", "?"), "count": len(tickers)}
 
 

@@ -301,9 +301,9 @@ function tabs(){
   const T=base.concat(D.patterns.map(p=>({k:p.key,l:p.label})));
   document.getElementById("tabs").innerHTML=T.map(x=>{
     let n;
-    if(x.k==="master") n=D.tickers.filter(t=>t.direction==="PUT"?(t.bearish&&t.bearish.final>=65):t.group!=="AVOID").length;
+    if(x.k==="master") n=D.tickers.filter(t=>t.direction==="PUT"?(t.bearish&&t.bearish.final>=60):t.group!=="AVOID").length;
     else if(x.k==="top") n=D.tickers.filter(t=>t.group!=="AVOID").length;
-    else if(x.k==="puts") n=D.tickers.filter(t=>t.bearish&&t.bearish.final>=75).length;
+    else if(x.k==="puts") n=D.tickers.filter(t=>t.direction==="PUT"||(t.bearish&&t.bearish.final>=60)).length;
     else n=D.tickers.filter(t=>t.pattern_scores[x.k]>=50).length;
     return `<div class="tab ${x.k===tab?'on':''}" onclick="go('${x.k}')">${x.l} <span class="n">${n}</span></div>`;
   }).join("");
@@ -322,8 +322,8 @@ function vm(t){
 function rows(){
   let list;
   if(tab==="top"){ list=D.tickers.filter(t=>t.group!=="AVOID"); }
-  else if(tab==="master"){ list=D.tickers.filter(t=> t.direction==="PUT"?(t.bearish&&t.bearish.final>=65):t.group!=="AVOID"); }
-  else if(tab==="puts"){ list=D.tickers.filter(t=> t.bearish && t.bearish.final>=60); }
+  else if(tab==="master"){ list=D.tickers.filter(t=> t.direction==="PUT"?(t.bearish&&t.bearish.final>=60):t.group!=="AVOID"); }
+  else if(tab==="puts"){ list=D.tickers.filter(t=> t.direction==="PUT" || (t.bearish && t.bearish.final>=60)); }
   else { list=D.tickers.filter(t=>t.pattern_scores[tab]>=50); }
   const isPattern=!["top","master","puts"].includes(tab);
   list.sort((a,b)=>{
