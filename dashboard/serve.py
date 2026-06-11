@@ -38,7 +38,11 @@ SCAN_INTERVAL = int(os.environ.get("SCAN_INTERVAL", "0"))
 SCAN_MODE = os.environ.get("SCAN_MODE", "best")
 SCAN_ACCOUNT = os.environ.get("SCAN_ACCOUNT", "0")
 QUOTE_TTL = float(os.environ.get("QUOTE_TTL", "2"))    # server-side live-quote cache (s)
+# Background UOA auto-scan (seconds between runs; 0 = off). Separate lock so a
+# long UOA scan never blocks the 5-min pattern re-scan.
+UOA_INTERVAL = int(os.environ.get("UOA_INTERVAL", "1800"))
 _lock = threading.Lock()
+_ULOCK = threading.Lock()
 _QLOCK = threading.Lock()
 _QCACHE = {}                                            # symbols -> (ts, body) shared snapshot
 
@@ -128,15 +132,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         cache = os.path.join(ROOT, "uoa.json")
         if not run:
             try:
-                age = time.time() - os.path.getmtime(cache)
-                if age < 900:
-                    with open(cache) as fh:
-                        return self._send(200, fh.read())
-                return self._send(200, json.dumps({"stale": True, "age_min": round(age / 60)}))
+                with open(cache) as fh:
+                    return self._send(200, fh.read())   # client shows the run timestamp
             except FileNotFoundError:
                 return self._send(200, json.dumps({"stale": True}))
-        if not _lock.acquire(blocking=False):
-            return self._send(409, json.dumps({"error": "scanner busy, try again"}))
+        if not _ULOCK.acquire(blocking=False):
+            return self._send(409, json.dumps({"error": "UOA scan already running"}))
         try:
             import uoa
             payload = uoa.scan()
@@ -144,7 +145,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001
             self._send(500, json.dumps({"error": str(exc)[-600:]}))
         finally:
-            _lock.release()
+            _ULOCK.release()
 
     def _quotes(self):
         """Live batch quotes via Tradier, with a short server-side cache so the
@@ -277,6 +278,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+def _uoa_loop():
+    """Background UOA auto-refresh: keeps the put-flow banner current without
+    anyone pressing the button. Staggered start to avoid colliding with the
+    first pattern scan's API burst."""
+    time.sleep(120)
+    while True:
+        try:
+            if _ULOCK.acquire(blocking=False):
+                try:
+                    import uoa
+                    uoa.scan()
+                    print("  [uoa-loop] refreshed", file=sys.stderr)
+                finally:
+                    _ULOCK.release()
+        except Exception as exc:  # noqa: BLE001
+            print(f"  [uoa-loop] {exc}", file=sys.stderr)
+        time.sleep(max(UOA_INTERVAL, 600))
+
+
 def _scan_loop():
     """Optional server-side scan loop (cloud): keeps data fresh without a browser."""
     while True:
@@ -297,6 +317,9 @@ def main():
     if SCAN_INTERVAL > 0:
         print(f"  server-side scan loop every {SCAN_INTERVAL}s", file=sys.stderr)
         threading.Thread(target=_scan_loop, daemon=True).start()
+    if UOA_INTERVAL > 0:
+        print(f"  UOA auto-scan every {UOA_INTERVAL}s", file=sys.stderr)
+        threading.Thread(target=_uoa_loop, daemon=True).start()
     with socketserver.ThreadingTCPServer((HOST, PORT), Handler) as srv:
         shown = "127.0.0.1" if HOST in ("127.0.0.1", "0.0.0.0") else HOST
         url = f"http://{shown}:{PORT}/"

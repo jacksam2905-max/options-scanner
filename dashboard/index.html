@@ -172,6 +172,10 @@ tr.det.show .det-in{display:grid}
 .urow .meta{color:var(--mut);font-size:11px}
 .urow .xmult{margin-left:auto;font-weight:800;color:var(--amber);font-size:12.5px}
 .unone{color:var(--dim);font-size:11.5px;padding:4px 0}
+.flowbanner{margin:0 0 12px;padding:10px 14px;border:1px solid var(--red);border-radius:10px;
+  background:rgba(248,81,73,.07);font-size:12.5px;line-height:1.7}
+.flowbanner a{color:var(--cyan);text-decoration:none}
+.flowbanner .fb-name{font-weight:700}
 
 /* modal + toast (clean) */
 .modal{position:fixed;inset:0;background:rgba(1,4,9,.7);display:none;align-items:center;justify-content:center;z-index:100}
@@ -246,6 +250,7 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;margin-top:22px;line-
 
   <div class="tabs" id="tabs"></div>
   <div class="hint" id="hint"></div>
+  <div id="flowBanner"></div>
 
   <div class="card" id="tblCard"><div style="overflow-x:auto"><table id="tbl"></table></div></div>
   <div id="uoaCards" style="display:none"></div>
@@ -372,9 +377,24 @@ function valOf(t,k){
 }
 function sortBy(k){ if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=-1;} render(); }
 
+function putFlowBanner(){
+  const U=window.UOA;
+  if(!U||!U.rows){ if(!window._uoaTried){window._uoaTried=true; loadUOA(false);} return ""; }
+  const hits=U.rows.filter(r=>{
+    const putStand=(r.standouts||[]).some(s=>s.type==="put");
+    return r.direction==="PUT" || (putStand && r.pcr>=1.0);   // put standouts + puts out-trading calls
+  }).slice(0,6);
+  if(!hits.length) return "";
+  return `<div class="flowbanner">⚠ <b>UOA PUT FLOW</b> — the one put signal with backtested edge (+12pp): `
+    + hits.map(h=>{ const st=(h.standouts||[]).find(s=>s.type==="put");
+        return `<span class="fb-name">${h.ticker}</span>${st?` (P$${st.strike} ${shortExp(h.expiry)}, ${st.vol_oi}× OI)`:""}`; }).join(" · ")
+    + ` — from ${U.generated} · <a href="#" onclick="go('uoa');return false">open UOA tab</a></div>`;
+}
 function render(){
   const tc=document.getElementById("tblCard"), uc=document.getElementById("uoaCards");
-  if(tab==="uoa"){ tc.style.display="none"; uc.style.display="block"; renderUOA(); return; }
+  const fb=document.getElementById("flowBanner");
+  fb.innerHTML=(tab==="puts"||tab==="master")?putFlowBanner():"";
+  if(tab==="uoa"){ tc.style.display="none"; uc.style.display="block"; fb.innerHTML=""; renderUOA(); return; }
   tc.style.display=""; uc.style.display="none";
   const list=rows();
   const isPattern=!["top","master","puts"].includes(tab);
@@ -722,7 +742,7 @@ async function loadUOA(force){
     else if(!force && j&&j.stale && !window.UOA){ /* no cache yet */ }
     if(j&&j.error) toast("UOA: "+j.error);
   }catch(e){ toast("UOA needs the local server."); }
-  tabs(); if(tab==="uoa") renderUOA();
+  tabs(); if(tab==="uoa") renderUOA(); else render();
 }
 function runUOA(btn){
   if(btn){ btn.disabled=true; btn.textContent="Scanning… (~1-2 min)"; }
