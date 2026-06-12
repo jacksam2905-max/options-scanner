@@ -37,6 +37,10 @@ TRADIER_TOKEN = os.environ.get("TRADIER_TOKEN", "")
 TRADIER_BASE = os.environ.get("TRADIER_BASE", "https://api.tradier.com/v1")
 OUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "dashboard", "uoa.json")
+OI_SNAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "reports", "uoa_oi_snapshot.json")
+EARN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "earnings_cache.json")
 
 # Curated most-active option names (flow lives here even when they're not
 # technical leaders/laggards).
@@ -159,7 +163,7 @@ def scan_one(ticker: str, price: float, chg_pct: float):
         return None
 
     cv = co = pv = po = 0
-    spreads, ivs, standouts = [], [], []
+    spreads, ivs, standouts, _contracts = [], [], [], []
     for o in opts:
         K = _sf(o.get("strike"))
         if not (price * 0.85 <= K <= price * 1.15):
@@ -179,11 +183,16 @@ def scan_one(ticker: str, price: float, chg_pct: float):
         iv = _sf(g.get("mid_iv") or g.get("smv_vol"))
         if iv > 0:
             ivs.append(iv * 100)
-        # classic contract-level UOA test
-        if vol >= 500 and oi > 0 and vol / oi >= 2.0:
+        # classic contract-level UOA test + notional filter: >= $250K premium
+        # actually traded (kills penny-contract noise)
+        last_px = _sf(o.get("last"))
+        if (vol >= 500 and oi > 0 and vol / oi >= 2.0
+                and vol * last_px * 100 >= 250_000):
             standouts.append({"type": typ, "strike": K, "vol": vol, "oi": oi,
                               "vol_oi": round(vol / oi, 1),
-                              "last": _sf(o.get("last")), "delta": round(_sf(g.get("delta")), 2)})
+                              "last": last_px, "delta": round(_sf(g.get("delta")), 2)})
+        if vol >= 200:                       # compact map for next-day OI confirmation
+            _contracts.append((typ, K, vol, oi))
 
     tot_vol, tot_oi = cv + pv, co + po
     vol_oi = tot_vol / tot_oi if tot_oi > 0 else 0.0
@@ -199,14 +208,28 @@ def scan_one(ticker: str, price: float, chg_pct: float):
     score = round(100 * (0.30 * n_voloi + 0.20 * n_iv + 0.20 * n_vol
                          + 0.15 * n_chg + 0.15 * n_spr), 1)
     pcr = pv / cv if cv > 0 else 9.9
-    direction = "CALL" if pcr < 0.7 else ("PUT" if pcr > 1.4 else "mixed")
+    # Direction from PER-SIDE vol/OI (activity relative to each side's own open
+    # interest) — self-normalizes names with a structurally put-heavy skew.
+    c_voloi = cv / co if co > 0 else 0.0
+    p_voloi = pv / po if po > 0 else 0.0
+    if p_voloi >= 1.5 * max(c_voloi, 0.01) and pv >= 500:
+        direction = "PUT"
+    elif c_voloi >= 1.5 * max(p_voloi, 0.01) and cv >= 500:
+        direction = "CALL"
+    else:
+        direction = "mixed"
     standouts.sort(key=lambda s: -s["vol"])
+    unusual = vol_oi >= 1.0 and tot_vol >= 2000
+    # PRE-MOVE: heavy flow while the stock hasn't moved yet — the predictive
+    # subset (the Jun-9 ARM profile: put flow the day BEFORE the -5% day).
+    pre_move = abs(chg_pct) < 1.0 and (unusual or vol_oi >= 0.8 or bool(standouts))
     return {"ticker": ticker, "price": round(price, 2), "chg_pct": round(chg_pct, 2),
             "expiry": expiry, "dte": dte, "score": score, "vol_oi": round(vol_oi, 2),
-            "call_vol": cv, "put_vol": pv, "pcr": round(pcr, 2), "atm_iv": round(atm_iv, 1),
-            "spread": round(med_spread, 1), "direction": direction,
-            "unusual": vol_oi >= 1.0 and tot_vol >= 2000,
-            "standouts": standouts[:3]}
+            "call_vol": cv, "put_vol": pv, "pcr": round(pcr, 2),
+            "c_voloi": round(c_voloi, 2), "p_voloi": round(p_voloi, 2),
+            "atm_iv": round(atm_iv, 1), "spread": round(med_spread, 1),
+            "direction": direction, "unusual": unusual, "pre_move": pre_move,
+            "standouts": standouts[:3], "_contracts": _contracts}
 
 
 def scan(max_workers: int = 4) -> dict:
@@ -224,12 +247,10 @@ def scan(max_workers: int = 4) -> dict:
             if res:
                 rows.append(res)
     rows.sort(key=lambda r: -r["score"])
-    payload = {"generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-               "count": len(rows), "universe": len(names),
-               "weights": "30% vol/OI · 20% IV · 20% volume · 15% |Δprice| · 15% spread",
-               "rows": rows}
-    # Pre-market / closed-market scans see zero contract volume — keep the
-    # last session's rich data instead of clobbering it with an empty scan.
+
+    # Pre-market / closed-market scans see zero contract volume — bail out
+    # BEFORE touching the OI snapshot or the cache (a zero scan must never
+    # wipe the OI-confirmation baseline).
     if rows and sum(r["call_vol"] + r["put_vol"] for r in rows) == 0:
         print("  [uoa] zero option volume (market closed) — keeping previous cache",
               file=sys.stderr)
@@ -237,7 +258,55 @@ def scan(max_workers: int = 4) -> dict:
             with open(OUT_PATH) as fh:
                 return json.load(fh)
         except Exception:  # noqa: BLE001
-            return payload
+            pass
+
+    # ---- OI confirmation: did yesterday's spike volume become NEW open
+    # interest? (OI only updates overnight, so confirmation appears the next
+    # trading day: oi_today > oi_then + 30% of the spiked volume = OPENED.)
+    today_iso = dt.date.today().isoformat()
+    try:
+        with open(OI_SNAP_PATH) as fh:
+            snap = json.load(fh)
+    except Exception:  # noqa: BLE001
+        snap = {}
+    new_snap = {}
+    for r in rows:
+        for typ, K, vol, oi in r.pop("_contracts", []):
+            key = f"{r['ticker']}|{r['expiry']}|{typ}|{K:g}"
+            new_snap[key] = {"oi": oi, "vol": vol, "date": today_iso}
+        for st in r["standouts"]:
+            key = f"{r['ticker']}|{r['expiry']}|{st['type']}|{st['strike']:g}"
+            prev = snap.get(key)
+            if prev and prev.get("date", "") < today_iso:
+                if st["oi"] >= prev["oi"] + max(0.3 * prev["vol"], 100):
+                    st["oi_confirmed"] = True       # volume became open interest
+                elif st["oi"] <= prev["oi"]:
+                    st["oi_confirmed"] = False      # likely closing/day-trade churn
+    try:
+        os.makedirs(os.path.dirname(OI_SNAP_PATH), exist_ok=True)
+        with open(OI_SNAP_PATH, "w") as fh:
+            json.dump(new_snap, fh)
+    except Exception:  # noqa: BLE001
+        pass
+
+    # ---- earnings annotation (pre-earnings flow is mostly hedging) ----
+    try:
+        with open(EARN_PATH) as fh:
+            ecache = json.load(fh)
+        today_d = dt.date.today()
+        for r in rows:
+            ed = (ecache.get(r["ticker"]) or {}).get("date")
+            if ed and ed != "unknown":
+                days = (dt.date.fromisoformat(ed) - today_d).days
+                if 0 <= days <= 30:
+                    r["earn_days"] = days
+    except Exception:  # noqa: BLE001
+        pass
+
+    payload = {"generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+               "count": len(rows), "universe": len(names),
+               "weights": "30% vol/OI · 20% IV · 20% volume · 15% |Δprice| · 15% spread",
+               "rows": rows}
     try:
         with open(OUT_PATH, "w") as fh:
             json.dump(payload, fh)

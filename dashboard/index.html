@@ -383,11 +383,11 @@ function putFlowBanner(){
   const hits=U.rows.filter(r=>{
     const putStand=(r.standouts||[]).some(s=>s.type==="put");
     return r.direction==="PUT" || (putStand && r.pcr>=1.0);   // put standouts + puts out-trading calls
-  }).slice(0,6);
+  }).sort((a,b)=>((b.pre_move?1:0)-(a.pre_move?1:0))||(b.score-a.score)).slice(0,6);
   if(!hits.length) return "";
   return `<div class="flowbanner">⚠ <b>UOA PUT FLOW</b> — the one put signal with backtested edge (+12pp): `
     + hits.map(h=>{ const st=(h.standouts||[]).find(s=>s.type==="put");
-        return `<span class="fb-name">${h.ticker}</span>${st?` (P$${st.strike} ${shortExp(h.expiry)}, ${st.vol_oi}× OI)`:""}`; }).join(" · ")
+        return `<span class="fb-name">${h.ticker}</span>${h.pre_move?'<span style="color:var(--cyan)">*pre-move*</span>':''}${st?` (P$${st.strike} ${shortExp(h.expiry)}, ${st.vol_oi}× OI${st.oi_confirmed===true?' ✓opened':''})`:""}`; }).join(" · ")
     + ` — from ${U.generated} · <a href="#" onclick="go('uoa');return false">open UOA tab</a></div>`;
 }
 function render(){
@@ -780,11 +780,14 @@ function renderUOA(){
          <span class="meta mono">vol ${st.vol.toLocaleString()} / OI ${st.oi.toLocaleString()}</span>
          <span class="meta mono">last ${usd(st.last)} · Δ${st.delta}</span>
          <span class="xmult">${st.vol_oi}×</span>
+         ${st.oi_confirmed===true?'<span class="ctag c">✓ OPENED</span>':st.oi_confirmed===false?'<span class="meta">closing?</span>':''}
        </div>`).join("") || `<div class="unone">no standout contracts (vol ≥500 & vol/OI ≥2)</div>`;
     return `<div class="ucard ${r.unusual?'uon':''}">
       <div class="uhead">
         <span class="tk">${r.ticker}</span>
         ${r.unusual?'<span class="badge bg-Ap">UNUSUAL</span>':''}
+        ${r.pre_move?'<span class="badge" style="background:rgba(88,166,255,.16);color:var(--cyan)">PRE-MOVE</span>':''}
+        ${(r.earn_days!=null&&r.earn_days<=14)?`<span class="badge bg-B">ER ${r.earn_days}d</span>`:''}
         ${dirb}
         <span class="upx mono">${usd(r.price)} <b style="color:${chgcol}">${r.chg_pct>=0?'+':''}${r.chg_pct}%</b></span>
       </div>
