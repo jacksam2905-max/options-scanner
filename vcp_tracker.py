@@ -280,8 +280,10 @@ class M:
     # levels & option
     entry: float = 0.0
     stop: float = 0.0
-    target: float = 0.0
+    target: float = 0.0          # headline = 3R runner (backtest V6)
+    target_trim: float = 0.0     # 2R scale-out level
     rr: float = 0.0
+    triggered_weak_vol: bool = False   # breakout fired on < 1.2x avg volume (V3)
     option: dict | None = None
     options_liquidity: str = "n/a"
     contracts: int = 0
@@ -910,14 +912,20 @@ def classify(m: M, allow_earnings: bool) -> str:
               and m.rs_score >= 70 and m.liq_score >= 70 and not m.earnings_within_7d
               and not m.extension_flag and near_entry)
     if a_plus:
-        return "A+"
+        cls = "A+"
     # Backtest-validated (V1): extended entries won 63% vs 79% for non-extended.
     # Extended names are watch-only (B) — wait for the pullback/retest.
-    if m.extension_flag:
-        return "B"
-    if m.final_score >= 75:   # >=85 but missing an A+ gate also lands here
-        return "A"
-    return "B"                # 65-74
+    elif m.extension_flag:
+        cls = "B"
+    elif m.final_score >= 75:   # >=85 but missing an A+ gate also lands here
+        cls = "A"
+    else:
+        cls = "B"               # 65-74
+    # Backtest-validated (V3): a breakout already triggered on weak volume is not
+    # an A-grade entry — cap at B until volume confirms (80%->87% win rate).
+    if m.triggered_weak_vol and cls in ("A+", "A"):
+        cls = "B"
+    return cls
 
 
 def levels(m: M, atr_mult: float = 1.5):
@@ -936,9 +944,19 @@ def levels(m: M, atr_mult: float = 1.5):
     if stop <= 0:
         stop = entry * 0.92
     risk = entry - stop
-    target = entry + 2 * risk if risk > 0 else entry + (entry - m.base_low)
+    # Backtest-validated (V6): a 3R runner earns +2.04R vs +1.35R for a flat 2R
+    # target, consistent across 4/4 windows. Headline target = 3R; scale half at
+    # the 2R trim level. (Cutting to 1.5R tested WORST, 0/4 — never do it.)
+    target = entry + 3 * risk if risk > 0 else entry + (entry - m.base_low)
+    m.target_trim = round(entry + 2 * risk, 2) if risk > 0 else round(entry, 2)
     rr = (target - entry) / risk if risk > 0 else 0.0
     m.entry, m.stop, m.target, m.rr = round(entry, 2), round(stop, 2), round(target, 2), round(rr, 2)
+    # Backtest-validated (V3): a breakout that already triggered on weak volume
+    # (< 1.2x 20-day avg) wins only ~baseline; volume-confirmed wins 80%->87%.
+    # Flag it so classify() caps the grade below A.
+    if len(m.df):
+        triggered_today = m.entry > 0 and float(m.df["High"].iloc[-1]) >= m.entry
+        m.triggered_weak_vol = bool(triggered_today and m.vol_vs_avg < 20)
 
 
 # --------------------------------------------------------------------------
@@ -976,11 +994,13 @@ def build_exit_plan(m: M):
         return
     prem = m.option["premium"]
     plan = [
-        "ENTRY RULE: take the breakout only on volume > 1.2x 20-day avg (backtested)",
-        f"Stop: option premium -30 to -40% (~${prem*0.65:.2f})",
-        f"Trim 50% at +50% (~${prem*1.5:.2f}); move remaining stop to breakeven",
-        f"Sell rest at +100% (~${prem*2:.2f}) or trail the runner toward 3R "
-        "(backtest favors letting it run)",
+        "ENTRY RULE: take the breakout only on volume > 1.2x 20-day avg "
+        "(backtested edge: 80%->87% win — weak-volume triggers are capped at B)",
+        f"Stop: option premium -30 to -40% (~${prem*0.65:.2f}) / stock below ${m.stop:.2f}",
+        f"Scale out half at 2R — stock ${m.target_trim:.2f} (~option +50% ${prem*1.5:.2f}); "
+        "move remaining stop to breakeven",
+        f"Let the rest run to 3R — stock ${m.target:.2f} (backtest V6: 3R earns "
+        "+2.04R vs +1.35R for a flat 2R)",
         f"Exit if stock closes below pivot ${m.pivot:.2f} after breakout",
         f"Consider exit if stock closes below 21 EMA ${m.ema21:.2f}",
         "Exit or roll if < 14 DTE remaining",
@@ -1761,70 +1781,12 @@ def assign_group(m: M):
 
 
 # --------------------------------------------------------------------------
-# Bearish put sizing / warnings / direction (Master Opportunity Scanner)
+# (Removed) Bearish put sizing / warnings / direction.
+# The 7-pattern bearish trade engine and put-option recommendations were deleted:
+# backtested no edge, and every short approach lost money across regimes
+# (backtest_put_engine.py / backtest_defense.py). The downside is now a
+# non-tradeable weakness radar (see bearish.py) for hedge/de-risk context only.
 # --------------------------------------------------------------------------
-def position_size_put(m: M, account: float, max_risk_pct: float, max_prem_loss: float,
-                      size_factor: float):
-    o = m.put_option
-    if not o or account <= 0:
-        m.put_contracts = 0
-        m.put_position_note = ("set --account-size" if account <= 0 else "no option")
-        return
-    prem = o["premium"]
-    if prem <= 0:
-        m.put_contracts = 0
-        m.put_position_note = "no premium"
-        return
-    max_dollar_risk = account * max_risk_pct / 100.0
-    per = prem * max_prem_loss * 100.0
-    by_risk = math.floor(max_dollar_risk / per) if per > 0 else 0
-    by_alloc = math.floor((account * 0.10) / (prem * 100.0))
-    c = max(min(by_risk, by_alloc), 0)
-    if size_factor < 1.0:
-        c = math.floor(c * size_factor)
-    m.put_contracts = int(c)
-    m.put_position_note = f"{m.put_contracts} ct; risk ${max_dollar_risk:,.0f} @ -{max_prem_loss*100:.0f}%"
-
-
-def build_bear_warnings(m: M):
-    w = []
-    if m.put_exceptional:
-        w.insert(0, "EXCEPTIONAL stock-specific breakdown (counter-market): half size, "
-                    "tight management.")
-    if m.do_not_chase_put:
-        w.append("Bearish trend valid, but too extended for new put entry — wait for bounce/retest.")
-    if m.bear_market_score < 40 and not m.put_exceptional:
-        w.append(f"Market not bearish ({m.bear_market_score:.0f}/100) — avoid puts unless exceptional.")
-    elif m.bear_market_score < 60:
-        w.append(f"Only mildly bearish market ({m.bear_market_score:.0f}/100) — A+ put setups only, smaller size.")
-    if m.earnings_within_7d:
-        w.append("Earnings within 7 days: put is speculative (event risk).")
-    if m.put_option is None:
-        w.append("No put recommendation: chain unavailable.")
-    elif 0 <= m.bear_liq_score < 60:
-        w.append(f"Put options liquidity weak ({m.bear_liq_score:.0f}/100) — do not recommend.")
-    if 0 < m.put_rr < 1.5:
-        w.append(f"Put R/R {m.put_rr:.1f} < 1.5 — skip.")
-    m.bear_warnings = w
-
-
-def assign_direction(metrics: list[M]):
-    """Primary opportunity direction per name for the master ranking.
-
-    Two PUT paths (both backtest-validated):
-      normal:      bearish_final >= 75 (confirmed bearish market + setup)
-      exceptional: stock-specific breakdown despite a non-bearish market
-                   (spec §11; lab G3 gate: 52% win / +0.55R on laggards) —
-                   pattern>=65 & rel-weak>=70 & below 50DMA & final>=60,
-                   never into earnings or an oversold chase. Half size."""
-    for m in metrics:
-        bull_ok = (m.final_score >= 65 and not m.below_200 and not m.bear_only)
-        exceptional = (m.bearish_pattern_score >= 65 and m.bear_rel_weakness >= 70
-                       and m.price < m.sma50 and m.bearish_final >= 60)
-        bear_ok = ((m.bearish_final >= 75 or exceptional)
-                   and not m.do_not_chase_put and not m.earnings_within_7d)
-        m.put_exceptional = bool(bear_ok and exceptional and m.bearish_final < 75)
-        m.direction = "PUT" if (bear_ok and (not bull_ok or m.bearish_final >= m.final_score)) else "CALL"
 
 
 # --------------------------------------------------------------------------
@@ -1966,21 +1928,11 @@ def metric_to_dict(m: M) -> dict:
         "event_risk_level": m.event_risk_level, "adjusted_final_score": m.adjusted_final_score,
         "position_size_multiplier": m.position_size_multiplier,
         "event_trade_allowed": m.event_trade_allowed,
-        "direction": m.direction, "bear_only": m.bear_only, "flow": m.flow,
-        "bearish": {
-            "final": m.bearish_final, "classification": m.bearish_classification,
-            "exceptional": m.put_exceptional,
-            "pattern_score": m.bearish_pattern_score, "market": m.bear_market_score,
-            "sector": m.bear_sector_score, "rel_weakness": m.bear_rel_weakness,
-            "liq": m.bear_liq_score, "best_pattern": m.bear_best_pattern,
-            "detected": m.bear_detected, "do_not_chase": m.do_not_chase_put,
-            "entry": m.put_entry, "stop": m.put_stop, "target": m.put_target, "rr": m.put_rr,
-            "contracts": m.put_contracts, "position_note": m.put_position_note,
-            "put_option": m.put_option, "warnings": m.bear_warnings,
-            "pattern_scores": {"failed_breakout": m.bear_failed_breakout,
-                               "late_base": m.bear_late_base, "distribution": m.bear_distribution,
-                               "dma_breakdown": m.bear_dma_breakdown, "rel_weakness": m.bear_rel_weakness,
-                               "bear_flag": m.bear_flag, "gap_down": m.bear_gap_down},
+        "direction": "CALL", "bear_only": m.bear_only, "flow": m.flow,
+        "downside": {
+            "weakness": m.bearish_final, "band": m.bearish_classification,
+            "flags": m.bear_detected, "market": m.bear_market_score,
+            "sector": m.bear_sector_score,
         },
         "trend": m.trend, "best_pattern": m.best_pattern,
         "detected_patterns": m.detected_patterns,
@@ -1991,7 +1943,8 @@ def metric_to_dict(m: M) -> dict:
                            "flat_base": m.flat_base, "htf": m.htf,
                            "three_weeks": m.three_weeks, "ma_bounce": m.ma_bounce,
                            "cup_handle": m.cup_handle},
-        "pivot": m.pivot, "entry": m.entry, "stop": m.stop, "target": m.target, "rr": m.rr,
+        "pivot": m.pivot, "entry": m.entry, "stop": m.stop, "target": m.target,
+        "target_trim": m.target_trim, "triggered_weak_vol": m.triggered_weak_vol, "rr": m.rr,
         "ema21": m.ema21, "below_200": m.below_200, "vol_vs_avg": m.vol_vs_avg,
         "dist_to_pivot": round(m.dist_to_pivot, 2), "extension_flag": m.extension_flag,
         "earnings_date": m.earnings_date, "earnings_days": m.earnings_days,
@@ -2030,6 +1983,8 @@ def recompute_with_option(t: dict, option: dict | None, account: float,
     m.pivot = t.get("pivot", 0.0); m.base_low = t.get("stop", 0.0)
     m.entry = t.get("entry", 0.0); m.stop = t.get("stop", 0.0)
     m.target = t.get("target", 0.0); m.rr = t.get("rr", 0.0)
+    m.target_trim = t.get("target_trim", 0.0)
+    m.triggered_weak_vol = bool(t.get("triggered_weak_vol", False))
     m.dist_to_pivot = t.get("dist_to_pivot", 0.0)
     m.extension_flag = t.get("extension_flag", ""); m.extended = bool(m.extension_flag)
     m.below_200 = t.get("below_200", False); m.ema21 = t.get("ema21", 0.0)
@@ -2180,15 +2135,8 @@ def analyze_ticker(ticker: str, account: float = 0.0, max_risk_pct: float = 1.5,
         import bearish
         bmkt = bearish.bearish_market_score(bench, vix, [m])
         bsec = bearish.bearish_sector_table(bench, [etf])
-        bearish.score_stock(m, bench, bmkt, bsec)
-        po = select_put(ticker, m.price, 30, 45)
-        m.put_option = po
-        m.bear_liq_score = options_liquidity_score(po) if po else -1.0
-        bearish.compute_final(m)
-        m.bearish_classification = bearish.classify(m.bearish_final)
-        position_size_put(m, account, max_risk_pct, max_prem_loss, regime.size_factor)
-        build_bear_warnings(m)
-        assign_direction([m])
+        bearish.score_stock(m, bench, bmkt, bsec)   # weakness only; puts not recommended
+        m.direction = "CALL"
     except Exception:  # noqa: BLE001
         pass
 
@@ -2365,53 +2313,34 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         print(f"  ! Event-risk module skipped ({exc}).", file=sys.stderr)
 
-    # Bearish PUT scanner — downside half of the Master Opportunity Scanner.
+    # Downside Radar — transparent per-name WEAKNESS ranking (NOT a trade signal).
+    # The former 7-pattern bearish trade engine + put-option recommendations were
+    # REMOVED: backtested no edge, and every short approach lost money across
+    # regimes (see backtest_put_engine.py / backtest_defense.py). The validated
+    # bear-market action is CASH, not shorting. This only flags weak names for
+    # hedging / de-risking context.
     try:
         import bearish
         bmkt = bearish.bearish_market_score(bench, vix, metrics)
         bsec = bearish.bearish_sector_table(bench, SECTOR_ETFS)
         for m in metrics:
             bearish.score_stock(m, bench, bmkt, bsec)
-        # chains for: normally-bearish names OR exceptional stock breakdowns
-        put_targets = [m for m in metrics
-                       if (m.bearish_final >= 65
-                           or (m.bearish_pattern_score >= 65 and m.bear_rel_weakness >= 70
-                               and m.bearish_final >= 60))
-                       and not m.do_not_chase_put
-                       and not m.earnings_within_7d][:args.top_options]
-        if put_targets:
-            print(f"  Verifying live PUT chains for top bearish setups ...", file=sys.stderr)
-            with ThreadPoolExecutor(max_workers=2) as ex:
-                for m, o in ex.map(lambda mm: (mm, select_put(mm.ticker, mm.price,
-                                                              args.min_dte, args.max_dte)), put_targets):
-                    m.put_option = o
-                    m.bear_liq_score = options_liquidity_score(o) if o else -1.0
-        for m in metrics:
-            bearish.compute_final(m)
-            m.bearish_classification = bearish.classify(m.bearish_final)
-        assign_direction(metrics)          # sets put_exceptional before sizing/warnings
-        for m in metrics:
-            if m.put_exceptional:          # counter-market breakdown: tag + half size
-                m.bearish_classification = "EXC"
-            position_size_put(m, args.account_size, args.max_risk_pct, args.max_prem_loss,
-                              regime.size_factor * (0.5 if m.put_exceptional else 1.0))
-            build_bear_warnings(m)
-        n_puts = sum(1 for m in metrics if m.direction == "PUT")
-        n_exc = sum(1 for m in metrics if m.put_exceptional)
-        print(f"  Bearish: market {bmkt:.0f}/100, {n_puts} PUT candidate(s)"
-              f" ({n_exc} exceptional counter-market)", file=sys.stderr)
+            m.direction = "CALL"           # puts are not recommended; trade side is long-only
+        n_weak = sum(1 for m in metrics if m.bearish_final >= 60)
+        print(f"  Downside Radar: market weakness {bmkt:.0f}/100, {n_weak} weak name(s) "
+              f"(hedge/de-risk context only — no put trades)", file=sys.stderr)
     except Exception as exc:  # noqa: BLE001
-        print(f"  ! Bearish scanner skipped ({exc}).", file=sys.stderr)
+        print(f"  ! Downside Radar skipped ({exc}).", file=sys.stderr)
 
-    # Laggard-universe names exist ONLY for the put side — never call candidates.
+    # Laggard-universe names exist only as weakness context — never call candidates.
     for m in metrics:
-        if m.bear_only and m.direction != "PUT":
+        if m.bear_only:
             m.group = "AVOID"
 
     # Options-flow confirmation (informational) for names with a contract.
     try:
         import flow as flow_mod
-        flow_targets = [m for m in metrics if m.option or m.put_option][:20]
+        flow_targets = [m for m in metrics if m.option][:20]
         if flow_targets:
             print(f"  Options-flow check on {len(flow_targets)} names ...", file=sys.stderr)
             with ThreadPoolExecutor(max_workers=3) as ex:

@@ -82,6 +82,52 @@ def _get(url, **kw):
     return requests.get(url, **kw)
 
 
+def _occ(ticker: str, expiry: str, strike: float, typ: str) -> str:
+    """OCC option symbol, e.g. NVDA260619P00120000."""
+    e = dt.date.fromisoformat(expiry).strftime("%y%m%d")
+    cp = "C" if typ == "call" else "P"
+    return f"{ticker}{e}{cp}{int(round(strike * 1000)):08d}"
+
+
+# Backtest finding (backtest_uoa_enh.py): the EDGE lives in MODERATE volume
+# spikes vs a contract's own recent average — 3-7x is the sweet spot (+15pp),
+# while 10x+ monster spikes have NO edge (likely hedging / rebalancing / reaction
+# to public news). Rank reflects edge, not raw size.
+def _spike_band(ratio):
+    if ratio is None:
+        return ("", 1)            # unknown -> neutral
+    if ratio >= 10:
+        return ("monster", 0)     # no edge — down-rank
+    if ratio >= 7:
+        return ("strong", 2)
+    if ratio >= 3:
+        return ("sweet", 3)       # the validated +15pp band
+    return ("mild", 1)
+
+
+def _contract_vol_ratio(ticker, expiry, strike, typ, today_vol):
+    """today's contract volume / its own prior ~10-session average volume."""
+    try:
+        r = _get(f"{TRADIER_BASE}/markets/history",
+                 params={"symbol": _occ(ticker, expiry, strike, typ), "interval": "daily",
+                         "start": (dt.date.today() - dt.timedelta(days=25)).isoformat(),
+                         "end": dt.date.today().isoformat()},
+                 headers=_hdr(), timeout=10)
+        days = (r.json().get("history") or {}).get("day") if r.ok else None
+    except Exception:  # noqa: BLE001
+        return None
+    if not days:
+        return None
+    if isinstance(days, dict):
+        days = [days]
+    vols = [_sf(d.get("volume")) for d in days]
+    prior = [v for v in vols[-11:-1] if v > 0]      # ~10 prior sessions (exclude latest)
+    if len(prior) < 3:
+        return None
+    base = sum(prior) / len(prior)
+    return round(today_vol / base, 1) if base > 0 else None
+
+
 def uoa_universe(target: int = 300) -> list[str]:
     """The option-active pond, expanded for coverage (Jun-10 forensic: 18/24
     big losers weren't scanned at 116 names). Core = leaders + laggards +
@@ -219,9 +265,19 @@ def scan_one(ticker: str, price: float, chg_pct: float):
     else:
         direction = "mixed"
     standouts.sort(key=lambda s: -s["vol"])
+    standouts = standouts[:3]
+    # ---- spike-quality: each standout's volume vs its OWN recent average.
+    # Backtest: 3-7x = the edge; 10x+ monsters = none. spike_rank ranks by edge.
+    spike_rank = 1
+    for st in standouts:
+        ratio = _contract_vol_ratio(ticker, expiry, st["strike"], st["type"], st["vol"])
+        band, rank = _spike_band(ratio)
+        st["vol_ratio"], st["band"] = ratio, band
+        spike_rank = max(spike_rank, rank)
     unusual = vol_oi >= 1.0 and tot_vol >= 2000
-    # PRE-MOVE: heavy flow while the stock hasn't moved yet — the predictive
-    # subset (the Jun-9 ARM profile: put flow the day BEFORE the -5% day).
+    # PRE-MOVE flag retained for reference only. NOTE (backtest_uoa_enh.py):
+    # PRE-MOVE was NOT predictive — it did not beat reactive flow, so it is no
+    # longer prioritised in ranking or badged as "the predictive subset".
     pre_move = abs(chg_pct) < 1.0 and (unusual or vol_oi >= 0.8 or bool(standouts))
     return {"ticker": ticker, "price": round(price, 2), "chg_pct": round(chg_pct, 2),
             "expiry": expiry, "dte": dte, "score": score, "vol_oi": round(vol_oi, 2),
@@ -229,7 +285,7 @@ def scan_one(ticker: str, price: float, chg_pct: float):
             "c_voloi": round(c_voloi, 2), "p_voloi": round(p_voloi, 2),
             "atm_iv": round(atm_iv, 1), "spread": round(med_spread, 1),
             "direction": direction, "unusual": unusual, "pre_move": pre_move,
-            "standouts": standouts[:3], "_contracts": _contracts}
+            "spike_rank": spike_rank, "standouts": standouts, "_contracts": _contracts}
 
 
 def scan(max_workers: int = 4) -> dict:
@@ -246,7 +302,8 @@ def scan(max_workers: int = 4) -> dict:
         for res in ex.map(work, names):
             if res:
                 rows.append(res)
-    rows.sort(key=lambda r: -r["score"])
+    # Rank by spike-quality first (sweet 3-7x up, monster 10x+ down), then score.
+    rows.sort(key=lambda r: (-r.get("spike_rank", 1), -r["score"]))
 
     # Pre-market / closed-market scans see zero contract volume — bail out
     # BEFORE touching the OI snapshot or the cache (a zero scan must never

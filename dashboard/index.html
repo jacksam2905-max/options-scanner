@@ -172,10 +172,14 @@ tr.det.show .det-in{display:grid}
 .urow .meta{color:var(--mut);font-size:11px}
 .urow .xmult{margin-left:auto;font-weight:800;color:var(--amber);font-size:12.5px}
 .unone{color:var(--dim);font-size:11.5px;padding:4px 0}
-.flowbanner{margin:0 0 12px;padding:10px 14px;border:1px solid var(--red);border-radius:10px;
-  background:rgba(248,81,73,.07);font-size:12.5px;line-height:1.7}
-.flowbanner a{color:var(--cyan);text-decoration:none}
-.flowbanner .fb-name{font-weight:700}
+.cashbanner{margin:0 0 12px;padding:11px 14px;border:1px solid var(--red);border-radius:10px;
+  background:rgba(248,81,73,.12);font-size:13px;line-height:1.5}
+.cashbanner b{color:var(--red)}
+.cautionbanner{margin:0 0 12px;padding:10px 14px;border:1px solid var(--amber);border-radius:10px;
+  background:rgba(210,153,34,.10);font-size:13px;line-height:1.5}
+.cautionbanner b{color:var(--amber)}
+.chiplet{display:inline-block;font-size:10.5px;padding:1px 6px;margin:1px 0;border-radius:6px;
+  background:var(--panel2);color:var(--mut);white-space:nowrap}
 
 /* modal + toast (clean) */
 .modal{position:fixed;inset:0;background:rgba(1,4,9,.7);display:none;align-items:center;justify-content:center;z-index:100}
@@ -250,7 +254,7 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;margin-top:22px;line-
 
   <div class="tabs" id="tabs"></div>
   <div class="hint" id="hint"></div>
-  <div id="flowBanner"></div>
+  <div id="regimeBanner"></div>
 
   <div class="card" id="tblCard"><div style="overflow-x:auto"><table id="tbl"></table></div></div>
   <div id="uoaCards" style="display:none"></div>
@@ -328,25 +332,22 @@ function head(){
 }
 
 function tabs(){
-  const base=[{k:"master",l:"Master"},{k:"top",l:"Top Calls"},{k:"puts",l:"Puts"},{k:"uoa",l:"UOA"}];
+  const base=[{k:"master",l:"Master"},{k:"top",l:"Top Calls"},{k:"puts",l:"Downside Radar"},{k:"uoa",l:"UOA"}];
   const T=base.concat(D.patterns.map(p=>({k:p.key,l:p.label})));
   document.getElementById("tabs").innerHTML=T.map(x=>{
     let n;
     if(x.k==="uoa") n=(window.UOA&&window.UOA.rows)?window.UOA.rows.filter(r=>r.unusual).length:"·";
-    else if(x.k==="master") n=D.tickers.filter(t=>t.direction==="PUT"?(t.bearish&&t.bearish.final>=60):t.group!=="AVOID").length;
+    else if(x.k==="master") n=D.tickers.filter(t=>t.group!=="AVOID").length;
     else if(x.k==="top") n=D.tickers.filter(t=>t.group!=="AVOID").length;
-    else if(x.k==="puts") n=D.tickers.filter(t=>t.direction==="PUT"||(t.bearish&&t.bearish.final>=60)).length;
+    else if(x.k==="puts") n=D.tickers.filter(t=>t.downside&&t.downside.weakness>=55).length;
     else n=D.tickers.filter(t=>t.pattern_scores[x.k]>=50).length;
     return `<div class="tab ${x.k===tab?'on':''}" onclick="go('${x.k}')">${x.l} <span class="n">${n}</span></div>`;
   }).join("");
 }
 function go(k){ tab=k; sortKey=null; openRow=null; tabs(); render(); }
 
-function dirOf(t){ return tab==="puts"?"PUT": tab==="master"?(t.direction||"CALL"):"CALL"; }
+function dirOf(t){ return "CALL"; }   // trade side is long-only; downside is a non-traded radar
 function vm(t){
-  if(dirOf(t)==="PUT" && t.bearish){ const b=t.bearish;
-    return {d:"PUT",score:b.final,cls:b.classification,setup:b.best_pattern,more:Math.max((b.detected||[]).length-1,0),
-            entry:b.entry,target:b.target,stop:b.stop,rr:b.rr,option:b.put_option,otype:"P",topiv:null}; }
   return {d:"CALL",score:t.final_score,cls:t.classification,setup:t.best_pattern,more:Math.max((t.detected_patterns||[]).length-1,0),
           entry:t.entry,target:t.target,stop:t.stop,rr:t.rr,option:t.option,otype:"C",topiv:t.dist_to_pivot};
 }
@@ -354,20 +355,26 @@ function vm(t){
 function rows(){
   let list;
   if(tab==="top"){ list=D.tickers.filter(t=>t.group!=="AVOID"); }
-  else if(tab==="master"){ list=D.tickers.filter(t=> t.direction==="PUT"?(t.bearish&&t.bearish.final>=60):t.group!=="AVOID"); }
-  else if(tab==="puts"){ list=D.tickers.filter(t=> t.direction==="PUT" || (t.bearish && t.bearish.final>=60)); }
+  else if(tab==="master"){ list=D.tickers.filter(t=>t.group!=="AVOID"); }
   else { list=D.tickers.filter(t=>t.pattern_scores[tab]>=50); }
   const isPattern=!["top","master","puts"].includes(tab);
   list.sort((a,b)=>{
     let av,bv;
     if(sortKey){ av=valOf(a,sortKey); bv=valOf(b,sortKey); }
-    else if(tab==="puts"){ av=a.bearish.final; bv=b.bearish.final; }
-    else if(tab==="master"){ av=vm(a).score; bv=vm(b).score; }
     else if(isPattern){ av=a.pattern_scores[tab]; bv=b.pattern_scores[tab]; }
-    else { av=a.final_score; bv=b.final_score; }
+    else { av=rankScore(a); bv=rankScore(b); }
     return (av>bv?1:av<bv?-1:0)*(sortKey?sortDir:-1);
   });
   return list;
+}
+// Display-only ranking nudge: backtest showed winners sat closer to the pivot
+// (3.0% vs 4.3%) — the only feature separating winners from losers. Nudges
+// near-pivot CALLs up in the list WITHOUT changing final_score or the gate.
+function rankScore(t){
+  let s=t.final_score;
+  if((t.direction||"CALL")!=="PUT" && typeof t.dist_to_pivot==="number")
+    s -= Math.min(Math.max(t.dist_to_pivot,0),10)*0.4;
+  return s;
 }
 function valOf(t,k){
   const v=vm(t);
@@ -377,31 +384,23 @@ function valOf(t,k){
 }
 function sortBy(k){ if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=-1;} render(); }
 
-function putFlowBanner(){
-  const U=window.UOA;
-  if(!U||!U.rows){ if(!window._uoaTried){window._uoaTried=true; loadUOA(false);} return ""; }
-  const hits=U.rows.filter(r=>{
-    const putStand=(r.standouts||[]).some(s=>s.type==="put");
-    return r.direction==="PUT" || (putStand && r.pcr>=1.0);   // put standouts + puts out-trading calls
-  }).sort((a,b)=>((b.pre_move?1:0)-(a.pre_move?1:0))||(b.score-a.score)).slice(0,6);
-  if(!hits.length) return "";
-  return `<div class="flowbanner">⚠ <b>UOA PUT FLOW</b> — the one put signal with backtested edge (+12pp): `
-    + hits.map(h=>{ const st=(h.standouts||[]).find(s=>s.type==="put");
-        return `<span class="fb-name">${h.ticker}</span>${h.pre_move?'<span style="color:var(--cyan)">*pre-move*</span>':''}${st?` (P$${st.strike} ${shortExp(h.expiry)}, ${st.vol_oi}× OI${st.oi_confirmed===true?' ✓opened':''})`:""}`; }).join(" · ")
-    + ` — from ${U.generated} · <a href="#" onclick="go('uoa');return false">open UOA tab</a></div>`;
-}
 function render(){
   const tc=document.getElementById("tblCard"), uc=document.getElementById("uoaCards");
-  const fb=document.getElementById("flowBanner");
-  fb.innerHTML=(tab==="puts"||tab==="master")?putFlowBanner():"";
-  if(tab==="uoa"){ tc.style.display="none"; uc.style.display="block"; fb.innerHTML=""; renderUOA(); return; }
+  const rb=document.getElementById("regimeBanner");
+  if(rb&&D.regime){ const rs=D.regime.score;
+    rb.innerHTML = rs<40
+      ? `<div class="cashbanner">⛔ <b>GO TO CASH</b> — market regime bearish (${rs.toFixed(0)}/100). All new long calls are rejected. Do NOT short the index (backtested negative); the only validated downside signal is UOA put-flow (see UOA tab).</div>`
+      : rs<60
+      ? `<div class="cautionbanner">⚠ <b>CAUTION</b> — weak/neutral market (${rs.toFixed(0)}/100). Long position size is auto-reduced; prefer cash / watchlist over new entries.</div>`
+      : ""; }
+  if(tab==="uoa"){ tc.style.display="none"; uc.style.display="block"; renderUOA(); return; }
+  if(tab==="puts"){ tc.style.display=""; uc.style.display="none"; renderDownside(); return; }
   tc.style.display=""; uc.style.display="none";
   const list=rows();
   const isPattern=!["top","master","puts"].includes(tab);
   const strat = isPattern ? D.patterns.find(p=>p.key===tab).label : null;
   document.getElementById("hint").textContent =
-    tab==="master" ? "Master opportunity list — best risk-adjusted CALLs and PUTs ranked together. Dir = trade side."
-    : tab==="puts" ? "Bearish PUT candidates (bearish score ≥ 60; recommend ≥ 75). Down-moves are faster — confirm the breakdown."
+    tab==="master" ? "Master opportunity list — top bullish CALL setups by Final Score (near-pivot ranked). Long-only: puts are not recommended (see Downside Radar for why)."
     : strat ? `Ranked by ${strat} score. Click a row for detail; click a header to re-sort.`
     : "Top bullish CALL recommendations by Final Score. Click a row for detail.";
 
@@ -659,26 +658,24 @@ async function analyzeTicker(){
   }
 }
 function renderLookup(t){
-  const dir=t.direction||"CALL", isPut=dir==="PUT";
-  const cls=isPut?(t.bearish&&t.bearish.classification):t.classification;
-  const o=isPut?(t.bearish&&t.bearish.put_option):t.option;
+  const o=t.option;
   const ev=(t.event_risk_level && t.event_risk_level!=="LOW")
     ? `<span class="badge bg-B" style="margin-left:6px">event ${t.event_risk_level}</span>` : "";
   const canBuy=!!o;
-  const buy=`<button class="buy ${canBuy?'':'off'}" onclick="openM('${t.ticker}','${dir}')">${canBuy?(isPut?'Buy Put':'Buy'):'No contract'}</button>`;
-  const bf=(t.bearish&&t.bearish.final)||0;
+  const buy=`<button class="buy ${canBuy?'':'off'}" onclick="openM('${t.ticker}','CALL')">${canBuy?'Buy':'No contract'}</button>`;
+  const wk=(t.downside&&t.downside.weakness)||0;
   document.getElementById("lookupWrap").innerHTML=
     `<div class="lookcard">
        <div class="lc-head">
          <span class="tk">${t.ticker}</span>
          <span class="co">${t.company||''} · ${t.sector||''} / ${t.sector_etf||''}</span>
-         <span class="dirb ${isPut?'dir-put':'dir-call'}">${dir}</span>
-         <span class="badge bg-${ck(cls)}">${cls}</span>${ev}
-         <span class="px mono" style="margin-left:6px">${usd(t.price)} · CALL <b style="color:${sc(t.final_score)}">${t.final_score}</b> · PUT <b style="color:${sc(bf)}">${bf}</b></span>
+         <span class="dirb dir-call">CALL</span>
+         <span class="badge bg-${ck(t.classification)}">${t.classification}</span>${ev}
+         <span class="px mono" style="margin-left:6px">${usd(t.price)} · CALL <b style="color:${sc(t.final_score)}">${t.final_score}</b> · weakness <b style="color:${wk>=55?'var(--red)':'var(--txt)'}">${wk}</b></span>
          ${buy}
          <span class="lc-close" title="close" onclick="document.getElementById('lookupWrap').innerHTML=''">✕</span>
        </div>
-       ${detail(t,dir)}
+       ${detail(t,'CALL')}
      </div>`;
   document.getElementById("lookupWrap").scrollIntoView({behavior:"smooth",block:"nearest"});
 }
@@ -748,11 +745,43 @@ function runUOA(btn){
   if(btn){ btn.disabled=true; btn.textContent="Scanning… (~1-2 min)"; }
   loadUOA(true).finally(()=>{ if(btn){btn.disabled=false; btn.textContent="↻ Run UOA scan";} });
 }
+function renderDownside(){
+  document.getElementById("hint").innerHTML =
+    `Downside Radar — names ranked by technical <b>weakness</b> for hedging / de-risking context. `+
+    `<b>These are NOT trade signals.</b> Every short approach we backtested lost money; the validated `+
+    `bear-market action is to <b>go to cash</b> (200DMA timing cut max drawdown −23%→−11%), not to short. `+
+    `Use this to decide which longs to trim or hedge.`;
+  // overlay the one validated downside signal: UOA put-flow, by ticker
+  const pf={}; if(window.UOA&&window.UOA.rows){ window.UOA.rows.forEach(r=>{
+    const ps=(r.standouts||[]).find(s=>s.type==='put');
+    if(r.direction==='PUT'||ps){ pf[r.ticker]={pre:r.pre_move,st:ps,exp:r.expiry}; }
+  }); } else if(!window._uoaTried){ window._uoaTried=true; loadUOA(false); }
+  const list=D.tickers.filter(t=>t.downside).slice()
+    .sort((a,b)=>b.downside.weakness-a.downside.weakness);
+  const head=`<thead><tr><th>Ticker</th><th class="r">Price</th><th class="r">Weakness</th>
+    <th>Flags</th><th>UOA put-flow (only validated downside signal)</th></tr></thead>`;
+  if(!list.length){ document.getElementById("tbl").innerHTML=head+`<tbody><tr><td colspan="5"><div class="empty">No data.</div></td></tr></tbody>`; return; }
+  const wcol=w=> w>=75?'var(--red)':w>=55?'#ff7b00':w>=35?'var(--amber)':'var(--green)';
+  const body=list.map(t=>{
+    const d=t.downside, f=pf[t.ticker];
+    const flags=(d.flags||[]).map(x=>`<span class="chiplet">${x}</span>`).join(" ")||'<span style="color:var(--dim)">—</span>';
+    const band=f&&f.st?f.st.band:null;
+    const bandtag=band==='sweet'?' <span style="color:var(--green)">✓ sweet spike</span>':band==='monster'?' <span style="color:var(--dim)">⚠ 10x+ (no edge)</span>':'';
+    const flow=f?`<span class="dirb dir-put">PUT FLOW</span>${bandtag}${f.st?` <span class="mono">P$${f.st.strike} ${shortExp(f.exp)} ${f.st.vol_oi}×OI</span>`:''}`
+      :'<span style="color:var(--dim)">—</span>';
+    return `<tr class="row"><td><span class="tk">${t.ticker}</span><span class="co">${t.company||''}</span></td>
+      <td class="r px mono" data-px="${t.ticker}">${usd(t.price)}</td>
+      <td class="r"><div class="fin"><span class="bar"><i style="width:${d.weakness}%;background:${wcol(d.weakness)}"></i></span><span class="v mono" style="color:${wcol(d.weakness)}">${d.weakness.toFixed(0)}</span></div></td>
+      <td>${flags}</td><td>${flow}</td></tr>`;
+  }).join("");
+  document.getElementById("tbl").innerHTML=head+`<tbody>${body}</tbody>`;
+  applyLive();
+}
 function renderUOA(){
   const U=window.UOA;
   document.getElementById("hint").innerHTML =
     `Standalone Unusual Options Activity — own universe (leaders + laggards + most-active option names). `+
-    `Backtest: PUT-side spikes +12pp edge vs baseline; CALL-side ~none. `+
+    `Backtest: PUT-side spikes ≈+10pp edge vs baseline; CALL-side has NO directional edge — treat call flow as activity only, not a bullish signal. `+
     `<button class="getopt" onclick="runUOA(this)">↻ Run UOA scan</button>`+
     (U?` <span style="color:var(--dim)">last run ${U.generated} · ${U.count} names · rubric ${U.weights}</span>`:"");
   const uc=document.getElementById("uoaCards");
@@ -761,10 +790,11 @@ function renderUOA(){
     if(!window._uoaTried){ window._uoaTried=true; loadUOA(false); }
     return;
   }
-  const list=U.rows.slice().sort((a,b)=>(b.unusual-a.unusual)||(b.score-a.score)).slice(0,36);
+  const list=U.rows.slice().sort((a,b)=>(b.unusual-a.unusual)||((b.spike_rank||1)-(a.spike_rank||1))||(b.score-a.score)).slice(0,36);
   uc.innerHTML=`<div class="ugrid">`+list.map(r=>{
     const chgcol=r.chg_pct>=0?'var(--green)':'var(--red)';
-    const dirb=`<span class="dirb ${r.direction==='PUT'?'dir-put':r.direction==='CALL'?'dir-call':''}" ${r.direction==='mixed'?'style="background:var(--panel2);color:var(--mut)"':''}>${r.direction}</span>`;
+    const dirb=`<span class="dirb ${r.direction==='PUT'?'dir-put':r.direction==='CALL'?'dir-call':''}" ${r.direction==='mixed'?'style="background:var(--panel2);color:var(--mut)"':''}>${r.direction}</span>`+
+      (r.direction==='CALL'?'<span class="meta" style="margin-left:4px;color:var(--mut)">activity only · no edge</span>':'');
     const stats=[["Vol/OI",r.vol_oi,r.vol_oi>=1?'var(--green)':'var(--txt)'],
                  ["Call vol",r.call_vol.toLocaleString(),'var(--txt)'],
                  ["Put vol",r.put_vol.toLocaleString(),'var(--txt)'],
@@ -779,14 +809,16 @@ function renderUOA(){
          <span class="meta mono">exp ${shortExp(r.expiry)} · ${r.dte} DTE</span>
          <span class="meta mono">vol ${st.vol.toLocaleString()} / OI ${st.oi.toLocaleString()}</span>
          <span class="meta mono">last ${usd(st.last)} · Δ${st.delta}</span>
-         <span class="xmult">${st.vol_oi}×</span>
+         <span class="xmult">${st.vol_oi}×OI</span>
+         ${st.vol_ratio!=null?`<span class="ctag ${st.band==='sweet'?'c':st.band==='monster'?'p':''}" ${st.band!=='sweet'&&st.band!=='monster'?'style="background:var(--panel2);color:var(--mut)"':''} title="today's volume vs this contract's own ~10-day average (backtest: 3-7x = edge, 10x+ = none)">${st.vol_ratio}× vol${st.band==='sweet'?' ✓edge':st.band==='monster'?' ⚠ no-edge':''}</span>`:''}
          ${st.oi_confirmed===true?'<span class="ctag c">✓ OPENED</span>':st.oi_confirmed===false?'<span class="meta">closing?</span>':''}
        </div>`).join("") || `<div class="unone">no standout contracts (vol ≥500 & vol/OI ≥2)</div>`;
     return `<div class="ucard ${r.unusual?'uon':''}">
       <div class="uhead">
         <span class="tk">${r.ticker}</span>
         ${r.unusual?'<span class="badge bg-Ap">UNUSUAL</span>':''}
-        ${r.pre_move?'<span class="badge" style="background:rgba(88,166,255,.16);color:var(--cyan)">PRE-MOVE</span>':''}
+        ${(r.spike_rank===3)?'<span class="badge bg-Ap" title="standout in the validated 3-7x spike band">✓ SWEET SPIKE</span>':''}
+        ${r.pre_move?'<span class="badge" style="background:var(--panel2);color:var(--mut)" title="flow before the move — note: backtested NOT predictive, shown for reference only">pre-move</span>':''}
         ${(r.earn_days!=null&&r.earn_days<=14)?`<span class="badge bg-B">ER ${r.earn_days}d</span>`:''}
         ${dirb}
         <span class="upx mono">${usd(r.price)} <b style="color:${chgcol}">${r.chg_pct>=0?'+':''}${r.chg_pct}%</b></span>
