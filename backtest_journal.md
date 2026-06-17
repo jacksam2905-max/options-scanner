@@ -12,3 +12,4 @@ One line per run. Grades the cohort of A/A+ recommendations the scanner would ha
 | Run (local) | Cohort as-of | Sel | Trig | Win% | Avg R | Est net % | Notes |
 |---|---|---|---|---|---|---|---|
 | 2026-06-16 20:45 | 2026-05-12 | 3 | 3 | 100% | +1.10 | +4.9% | 3/3 triggered; best KLAC +2.0R / worst INVH -0.4R |
+| 2026-06-17 15:41 | 2026-05-13 | 4 | 3 | 50% | +0.88 | +4.0% | 3/4 triggered; best NTAP +2.0R / worst AMAT -1.0R; 1 never triggered |
