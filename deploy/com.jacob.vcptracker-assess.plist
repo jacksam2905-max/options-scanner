@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jacob.vcptracker-assess</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/jacob/Code/VCP tracker/run_daily_assess.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/jacob/Code/VCP tracker</string>
+
+    <!-- Weekdays (Mon=1 .. Fri=5) at 15:15 local CT = 4:15pm ET, 15 min after
+         the US close, so the day's bar is final. (This Mac is on Central Time;
+         if it moves to ET, change Hour to 16.) The script keys off the data
+         index, so the exact minute is not critical. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>15</integer></dict>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/jacob/Code/VCP tracker/reports/assess.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jacob/Code/VCP tracker/reports/assess.err.log</string>
+</dict>
+</plist>
