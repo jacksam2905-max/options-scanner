@@ -44,14 +44,28 @@ MAX_OPEN = int(os.environ.get("ASSESS_MAX_OPEN", "5"))           # mirror scanne
 MAX_PER_SECTOR = int(os.environ.get("ASSESS_MAX_PER_SECTOR", "2"))
 RISK_PCT = float(os.environ.get("ASSESS_RISK_PCT", "1.5"))       # % equity risked / trade
 
-HEADER = ("# Backtest journal — daily swing self-assessment\n\n"
-          "One line per run. Grades the cohort of A/A+ recommendations the scanner "
-          "would have taken ~%d trading days earlier (portfolio-constrained: <=%d open, "
-          "<=%d/sector), simulated trigger->3R vs ATR stop. Est net %% = sum(R) x %.1f%% "
-          "risk/slot. Proposals live in the run logs, NOT here; adopt a change only "
-          "after it holds across MULTIPLE rows.\n\n"
-          "| Run (local) | Cohort as-of | Sel | Trig | Win%% | Avg R | Est net %% | Notes |\n"
-          "|---|---|---|---|---|---|---|---|\n") % (LOOKBACK, MAX_OPEN, MAX_PER_SECTOR, RISK_PCT)
+_USAGE = (
+    "**How & when to use this — it's a drift detector, NOT a trade signal.** Each row "
+    "grades trades from ~5 weeks ago, so nothing here is time-sensitive; don't act on it "
+    "like a signal.\n"
+    "- **Review weekly / every ~10 rows**, not daily.\n"
+    "- **Act on persistence, never one row.** A single bad row is noise (the sample is 0-5 trades).\n"
+    "- **If an observation/proposal recurs across 5+ rows** (or Win%/Avg R trends down for "
+    "weeks), turn it into ONE specific tweak, validate it with `backtest_lab.py`, and adopt "
+    "only if it holds in >=5/7 windows. Never change logic on one day's evidence.\n"
+    "- **Empty cohorts**: in a weak tape = correct (cash); in a strong tape = investigate the "
+    "A/A+ gate.\n"
+    "- Full per-run analysis + proposals are in `reports/assess_YYYY-MM-DD.log`.\n\n")
+HEADER = (("# Backtest journal — daily swing self-assessment\n\n"
+           "One line per run. Grades the cohort of A/A+ recommendations the scanner "
+           "would have taken ~%d trading days earlier (portfolio-constrained: <=%d open, "
+           "<=%d/sector), simulated trigger->3R vs ATR stop. Est net %% = sum(R) x %.1f%% "
+           "risk/slot. Proposals live in the run logs, NOT here; adopt a change only "
+           "after it holds across MULTIPLE rows.\n\n")
+          % (LOOKBACK, MAX_OPEN, MAX_PER_SECTOR, RISK_PCT)
+          + _USAGE
+          + "| Run (local) | Cohort as-of | Sel | Trig | Win% | Avg R | Est net % | Notes |\n"
+            "|---|---|---|---|---|---|---|---|\n")
 
 
 def _prior_runs() -> int:
