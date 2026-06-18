@@ -53,6 +53,20 @@ ACTIVE_OPTION_NAMES = [
 ]
 
 
+try:
+    from zoneinfo import ZoneInfo
+    _CT = ZoneInfo("America/Chicago")
+except Exception:  # noqa: BLE001
+    _CT = None
+
+
+def _now_ct() -> str:
+    """User-facing timestamp in US Central time (cloud server runs in UTC)."""
+    if _CT is not None:
+        return dt.datetime.now(_CT).strftime("%Y-%m-%d %H:%M:%S CT")
+    return dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
 def _sf(v):
     try:
         f = float(v)
@@ -360,7 +374,7 @@ def scan(max_workers: int = 4) -> dict:
     except Exception:  # noqa: BLE001
         pass
 
-    payload = {"generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    payload = {"generated": _now_ct(),
                "count": len(rows), "universe": len(names),
                "weights": "30% vol/OI · 20% IV · 20% volume · 15% |Δprice| · 15% spread",
                "rows": rows}

@@ -68,6 +68,20 @@ BENCHMARKS = ["SPY", "QQQ", "IWM"]
 VIX_SYMBOL = "^VIX"
 RISK_FREE = 0.04
 
+try:
+    from zoneinfo import ZoneInfo
+    _CT = ZoneInfo("America/Chicago")
+except Exception:  # noqa: BLE001
+    _CT = None
+
+
+def _now_ct() -> str:
+    """Timestamp in US Central time with an explicit CT label (the cloud server
+    runs in UTC, so always render the user-facing time in CT)."""
+    if _CT is not None:
+        return dt.datetime.now(_CT).strftime("%Y-%m-%d %H:%M:%S CT")
+    return dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 # Options data source. Tradier returns real greeks + chains even after hours
 # (last-close), so option details populate outside RTH for watchlisting.
 TRADIER_TOKEN = os.environ.get("TRADIER_TOKEN", "")
@@ -1793,7 +1807,7 @@ def assign_group(m: M):
 # Output
 # --------------------------------------------------------------------------
 def print_header(data_date: str, score_mode: str, regime: Regime):
-    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = _now_ct()
     print("\n" + "=" * 140)
     print(f"  MULTI-LAYER BULLISH OPTIONS SCANNER  (regime+sector+pattern+RS+liquidity+earnings -> final score; pattern mode={score_mode})")
     print(f"  Data through (last bar): {data_date}   |   Generated: {now}")
@@ -2022,7 +2036,7 @@ def write_dashboard_json(path: str, metrics: list[M], regime: Regime,
                          sectors: dict[str, dict], data_date: str, args, event=None):
     import json
     payload = {
-        "generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "generated": _now_ct(),
         "data_date": data_date,
         "score_mode": args.score_mode,
         "account_size": args.account_size,

@@ -137,7 +137,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except FileNotFoundError:
                 return self._send(200, json.dumps({"stale": True}))
         if not _ULOCK.acquire(blocking=False):
-            return self._send(409, json.dumps({"error": "UOA scan already running"}))
+            # already scanning (e.g. the 30-min auto-loop, or a prior refresh) —
+            # hand back the current cache instead of erroring; it'll update shortly.
+            try:
+                with open(cache) as fh:
+                    return self._send(200, fh.read())
+            except FileNotFoundError:
+                return self._send(200, json.dumps({"stale": True}))
         try:
             import uoa
             payload = uoa.scan()
@@ -228,8 +234,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         account = q.get("account", ["0"])[0]
         if mode not in ("best", "weighted"):
             mode = "best"
+        # Single-flight: if a refresh is already running, DON'T dead-end or
+        # double-run — wait for the in-flight scan to finish and return ITS fresh
+        # result. Keeps things clean when the button is clicked + the page
+        # reloaded, or multiple viewers refresh at once.
         if not _lock.acquire(blocking=False):
-            return self._send(409, json.dumps({"error": "a refresh is already running"}))
+            sys.stderr.write("  [refresh] one already running — waiting for it ...\n")
+            got = _lock.acquire(timeout=600)              # blocks until the running scan releases
+            if got:
+                _lock.release()                           # don't re-run; just hand back its output
+            try:
+                with open(os.path.join(ROOT, "data.json")) as fh:
+                    return self._send(200, fh.read())
+            except Exception:  # noqa: BLE001
+                return self._send(503, json.dumps({"error": "refresh in progress — retry shortly"}))
         try:
             sys.stderr.write(f"  [refresh] running scanner (mode={mode}, account={account}) ...\n")
             body = run_scan(mode, account)
