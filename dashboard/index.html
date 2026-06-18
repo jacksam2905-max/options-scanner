@@ -622,7 +622,9 @@ async function refresh(){
     if(!res.ok || j.error) throw new Error(j.error || ("HTTP "+res.status));
     D=j; window.SCAN_DATA=j; openRow=null; sortKey=null;
     head(); tabs(); render();
-    toast("Updated · "+j.generated+(j.any_option?" · options feed LIVE":" · market closed (options pending)"));
+    toast("Updated · "+j.generated+(j.any_option?" · options feed LIVE":" · market closed (options pending)")+" · UOA refreshing…");
+    // one button does both: also kick a fresh UOA scan (slow ~1-2 min) in the background
+    loadUOA(true).then(()=>toast("UOA updated · "+((window.UOA&&window.UOA.generated)||""))).catch(()=>{});
   }catch(e){
     const off=/Failed to fetch|NetworkError|Load failed|bad server response/i.test(e.message||"");
     toast(off
@@ -741,10 +743,6 @@ async function loadUOA(force){
   }catch(e){ toast("UOA needs the local server."); }
   tabs(); if(tab==="uoa") renderUOA(); else render();
 }
-function runUOA(btn){
-  if(btn){ btn.disabled=true; btn.textContent="Scanning… (~1-2 min)"; }
-  loadUOA(true).finally(()=>{ if(btn){btn.disabled=false; btn.textContent="↻ Run UOA scan";} });
-}
 function renderDownside(){
   document.getElementById("hint").innerHTML =
     `Downside Radar — names ranked by technical <b>weakness</b> for hedging / de-risking context. `+
@@ -782,11 +780,11 @@ function renderUOA(){
   document.getElementById("hint").innerHTML =
     `Standalone Unusual Options Activity — own universe (leaders + laggards + most-active option names). `+
     `Backtest: PUT-side spikes ≈+10pp edge vs baseline; CALL-side has NO directional edge — treat call flow as activity only, not a bullish signal. `+
-    `<button class="getopt" onclick="runUOA(this)">↻ Run UOA scan</button>`+
-    (U?` <span style="color:var(--dim)">last run ${U.generated} · ${U.count} names · rubric ${U.weights}</span>`:"");
+    `<span style="color:var(--dim)">updates with the ↻ Refresh now button at top (UOA scan ~1-2 min)</span>`+
+    (U?` <span style="color:var(--dim)">· last run ${U.generated} · ${U.count} names · rubric ${U.weights}</span>`:"");
   const uc=document.getElementById("uoaCards");
   if(!U||!U.rows||!U.rows.length){
-    uc.innerHTML=`<div class="empty">No UOA data yet — hit "Run UOA scan" (takes ~1-2 min; cached 15 min).</div>`;
+    uc.innerHTML=`<div class="empty">No UOA data yet — use the ↻ Refresh now button at top (UOA scan takes ~1-2 min).</div>`;
     if(!window._uoaTried){ window._uoaTried=true; loadUOA(false); }
     return;
   }
