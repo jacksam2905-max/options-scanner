@@ -1033,21 +1033,23 @@ def build_alerts(m: M):
         a.append("Broke above pivot")
     # Backtest-validated (V3): breakouts on >1.2x avg volume win 73% vs 68%;
     # weak-volume triggers should be skipped.
-    if m.entry > 0 and float(m.df["High"].iloc[-1]) >= m.entry:
-        if m.vol_vs_avg >= 20:
-            a.append(f"Entry triggered TODAY with volume confirmation (+{m.vol_vs_avg:.0f}% vs avg)")
-        else:
-            a.append("Entry triggered today on WEAK volume — skip unless volume exceeds 1.2x avg")
-    # Jun-10 forensic signature: that day's big losers were EXTENDED leaders
-    # (avg +7.7% over 50DMA) already reversing (5d -3.4%) with weak closes.
-    # Defensive only — protects longs; NOT a short signal (shorting it tested
-    # negative across 97k name-days).
-    vs50 = (m.price / m.sma50 - 1) * 100 if m.sma50 else 0.0
-    ret5 = _ret(m.df["Close"], 5)
-    weak_close = float(m.df["Close"].iloc[-1]) < float(m.df["Open"].iloc[-1])
-    if vs50 > 5 and ret5 <= -3 and weak_close:
-        a.append(f"DE-RISKING PROFILE: extended leader rolling over (5d {ret5:+.1f}%, "
-                 f"weak close) — tighten stops on longs, do not add")
+    # df-dependent alerts — skipped on the on-demand option path (empty df).
+    if len(m.df):
+        if m.entry > 0 and float(m.df["High"].iloc[-1]) >= m.entry:
+            if m.vol_vs_avg >= 20:
+                a.append(f"Entry triggered TODAY with volume confirmation (+{m.vol_vs_avg:.0f}% vs avg)")
+            else:
+                a.append("Entry triggered today on WEAK volume — skip unless volume exceeds 1.2x avg")
+        # Jun-10 forensic signature: that day's big losers were EXTENDED leaders
+        # (avg +7.7% over 50DMA) already reversing (5d -3.4%) with weak closes.
+        # Defensive only — protects longs; NOT a short signal (shorting it tested
+        # negative across 97k name-days).
+        vs50 = (m.price / m.sma50 - 1) * 100 if m.sma50 else 0.0
+        ret5 = _ret(m.df["Close"], 5)
+        weak_close = float(m.df["Close"].iloc[-1]) < float(m.df["Open"].iloc[-1])
+        if vs50 > 5 and ret5 <= -3 and weak_close:
+            a.append(f"DE-RISKING PROFILE: extended leader rolling over (5d {ret5:+.1f}%, "
+                     f"weak close) — tighten stops on longs, do not add")
     if m.vol_vs_avg >= 40:
         a.append(f"Volume {m.vol_vs_avg:.0f}% above 20-day avg")
     if m.pocket >= 70:
