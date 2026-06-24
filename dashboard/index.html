@@ -367,14 +367,13 @@ function rows(){
   });
   return list;
 }
-// Display-only ranking nudge: backtest showed winners sat closer to the pivot
-// (3.0% vs 4.3%) — the only feature separating winners from losers. Nudges
-// near-pivot CALLs up in the list WITHOUT changing final_score or the gate.
+// Master/Top ordering: PRIMARY key is Final score (so the visible Final column
+// stays in descending order); among ties, prefer names closer to their pivot
+// (backtest: near-pivot winners 3.0% vs 4.3% to pivot). Final*1000 dominates;
+// the pivot distance only breaks ties / near-ties.
 function rankScore(t){
-  let s=t.final_score;
-  if((t.direction||"CALL")!=="PUT" && typeof t.dist_to_pivot==="number")
-    s -= Math.min(Math.max(t.dist_to_pivot,0),10)*0.4;
-  return s;
+  const dp = typeof t.dist_to_pivot==="number" ? Math.max(t.dist_to_pivot,0) : 0;
+  return t.final_score*1000 - dp;
 }
 function valOf(t,k){
   const v=vm(t);

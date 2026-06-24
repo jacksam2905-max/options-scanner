@@ -2171,13 +2171,13 @@ def main() -> int:
     ap.add_argument("--allow-earnings", action="store_true",
                     help="keep setups with earnings within 7 days (flagged as earnings risk)")
     ap.add_argument("--atr-mult", type=float, default=1.5, help="ATR multiple for the ATR stop")
-    ap.add_argument("--top-options", type=int, default=16,
+    ap.add_argument("--top-options", type=int, default=30,
                     help="how many top-ranked names to pull option chains for")
     ap.add_argument("--score-mode", choices=["weighted", "best"], default="weighted",
                     help="pattern-score method: 'weighted' (additive) or 'best' (strongest pattern)")
     ap.add_argument("--sentiment", action=argparse.BooleanOptionalAction, default=True,
                     help="confirm top names against fresh news + Reddit chatter (default on)")
-    ap.add_argument("--sentiment-top", type=int, default=5,
+    ap.add_argument("--sentiment-top", type=int, default=12,
                     help="how many top-ranked names to run sentiment confirmation on")
     ap.add_argument("--account-size", type=float, default=0.0,
                     help="account size in $ for position sizing (0 = skip sizing)")
@@ -2263,8 +2263,13 @@ def main() -> int:
         m.extended = bool(m.extension_flag)
         levels(m, args.atr_mult)
 
-    # Preliminary rank to choose which names to pull option chains for.
-    metrics.sort(key=lambda m: (-((m.combined + m.sector_score) / 2), -m.rs_score))
+    # Preliminary Final score (neutral liquidity prior) so we fetch option chains
+    # for the names the MASTER list will actually rank highest — not a separate
+    # pattern-only order (which left top recommendations without a contract).
+    # Final is re-computed after the fetch with the real liquidity score.
+    for m in metrics:
+        compute_final(m)
+    metrics.sort(key=lambda m: (-m.final_score, abs(m.dist_to_pivot)))
     # Fetch chains for the strongest names so the watchlist shows contracts.
     # Extended names ARE included (for watchlisting) — they still can't become
     # A+ (the extension gate blocks that); the contract is informational.
