@@ -82,6 +82,35 @@ def _now_ct() -> str:
         return dt.datetime.now(_CT).strftime("%Y-%m-%d %H:%M:%S CT")
     return dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+
+# --------------------------------------------------------------------------
+# Auto-tunable parameters (bounded). Defaults reproduce the original behavior;
+# weekly_review.py may nudge them within TUNE_BOUNDS after backtest validation.
+# --------------------------------------------------------------------------
+TUNE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tuning.json")
+TUNE_DEFAULTS = {"chase_max_pct": 5.0, "vol_confirm_pct": 20.0}
+TUNE_BOUNDS = {"chase_max_pct": (2.0, 8.0), "vol_confirm_pct": (10.0, 40.0)}
+
+
+def _load_tuning() -> dict:
+    t = dict(TUNE_DEFAULTS)
+    try:
+        import json as _json
+        with open(TUNE_PATH) as fh:
+            data = _json.load(fh)
+        for k, (lo, hi) in TUNE_BOUNDS.items():
+            if k in data:
+                try:
+                    t[k] = min(max(float(data[k]), lo), hi)
+                except (TypeError, ValueError):
+                    pass
+    except Exception:  # noqa: BLE001
+        pass
+    return t
+
+
+TUNE = _load_tuning()
+
 # Options data source. Tradier returns real greeks + chains even after hours
 # (last-close), so option details populate outside RTH for watchlisting.
 TRADIER_TOKEN = os.environ.get("TRADIER_TOKEN", "")
@@ -914,7 +943,7 @@ def classify(m: M, allow_earnings: bool) -> str:
     # Hard rejects (Step 14 safety rules). NOTE: being extended above the 50SMA
     # is "wait for pullback" (watchlist), NOT a hard reject — only chasing the
     # entry (>5% ABOVE the pivot) is a hard reject here.
-    chasing = (-m.dist_to_pivot) > 5
+    chasing = (-m.dist_to_pivot) > TUNE["chase_max_pct"]
     if m.below_200 or chasing or m.market_regime < 40:
         return "REJECT"
     if m.earnings_within_7d and not allow_earnings:
@@ -970,7 +999,7 @@ def levels(m: M, atr_mult: float = 1.5):
     # Flag it so classify() caps the grade below A.
     if len(m.df):
         triggered_today = m.entry > 0 and float(m.df["High"].iloc[-1]) >= m.entry
-        m.triggered_weak_vol = bool(triggered_today and m.vol_vs_avg < 20)
+        m.triggered_weak_vol = bool(triggered_today and m.vol_vs_avg < TUNE["vol_confirm_pct"])
 
 
 # --------------------------------------------------------------------------

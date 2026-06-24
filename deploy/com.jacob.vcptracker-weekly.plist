@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jacob.vcptracker-weekly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/jacob/Code/VCP tracker/run_weekly_review.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/jacob/Code/VCP tracker</string>
+
+    <!-- Saturday (Weekday 6) 09:00 local CT: the week's daily cohorts are in,
+         market is closed, machine usually on. Reviews + (gated) auto-tunes. -->
+    <key>StartCalendarInterval</key>
+    <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/jacob/Code/VCP tracker/reports/weekly.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jacob/Code/VCP tracker/reports/weekly.err.log</string>
+</dict>
+</plist>

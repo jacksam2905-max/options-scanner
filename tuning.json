@@ -1,0 +1,5 @@
+{
+  "_note": "Auto-tunable scanner parameters. Defaults = original behavior. The weekly_review.py loop may adjust these within bounds ONLY when a proposal persists >=5 distinct cohorts AND validates in backtest_lab (>=5/7 windows). Every change is logged in tuning_changelog.md and reversible. Edit by hand to override; delete a key to reset to default.",
+  "chase_max_pct": 5.0,
+  "vol_confirm_pct": 20.0
+}
