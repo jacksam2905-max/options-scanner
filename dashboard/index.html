@@ -180,6 +180,9 @@ tr.det.show .det-in{display:grid}
 .cautionbanner b{color:var(--amber)}
 .chiplet{display:inline-block;font-size:10.5px;padding:1px 6px;margin:1px 0;border-radius:6px;
   background:var(--panel2);color:var(--mut);white-space:nowrap}
+.buytag{display:inline-block;margin-left:5px;font-size:10px;font-weight:800;letter-spacing:.4px;
+  padding:1px 6px;border-radius:6px;background:rgba(63,185,80,.18);color:var(--green);
+  border:1px solid var(--green);vertical-align:middle}
 
 /* modal + toast (clean) */
 .modal{position:fixed;inset:0;background:rgba(1,4,9,.7);display:none;align-items:center;justify-content:center;z-index:100}
@@ -399,9 +402,9 @@ function render(){
   const isPattern=!["top","master","puts"].includes(tab);
   const strat = isPattern ? D.patterns.find(p=>p.key===tab).label : null;
   document.getElementById("hint").textContent =
-    tab==="master" ? "Master opportunity list — top bullish CALL setups by Final Score (near-pivot ranked). Long-only: puts are not recommended (see Downside Radar for why)."
+    tab==="master" ? "Master opportunity list — top bullish CALL setups by Final Score (near-pivot ranked). Green ● BUY = actionable now (at/near pivot, not extended); the rest are watchlist — wait for the entry. Long-only."
     : strat ? `Ranked by ${strat} score. Click a row for detail; click a header to re-sort.`
-    : "Top bullish CALL recommendations by Final Score. Click a row for detail.";
+    : "Top bullish CALL recommendations by Final Score. Green ● BUY = actionable now; others are watchlist (wait for the pivot entry). Click a row for detail.";
 
   const stratCol = strat?`<th class="r" onclick="sortBy('strat')">${strat}</th>`:"";
   const head=`<thead><tr>
@@ -435,7 +438,7 @@ function render(){
       <td><span class="tk">${t.ticker}</span><span class="co">${t.company}</span></td>
       <td>${dirBadge}</td>
       <td class="r px mono" data-px="${t.ticker}">${usd(t.price)}</td>
-      <td><span class="badge bg-${ck(v.cls)}">${v.cls}</span></td>
+      <td><span class="badge bg-${ck(v.cls)}">${v.cls}</span>${t.group==='ACTIVE'?'<span class="buytag" title="actionable now — at/near pivot, not extended">● BUY</span>':''}</td>
       <td class="r"><div class="fin"><span class="bar"><i style="width:${v.score}%;background:${sc(v.score)}"></i></span><span class="v mono" style="color:${sc(v.score)}">${v.score}</span></div></td>
       ${stratCell}
       <td>${setup}</td>

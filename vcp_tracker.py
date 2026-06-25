@@ -1817,12 +1817,20 @@ def build_warnings(m: M):
 
 
 def assign_group(m: M):
-    if m.classification == "A+":
-        m.group = "ACTIVE"
-    elif m.classification in ("A", "B"):
-        m.group = "WATCHLIST"
-    else:
+    # ACTIVE (actionable BUY) = a recommend-grade setup (A/A+) that is at or near
+    # its pivot and NOT extended — i.e. buyable now. This is the actionable subset
+    # of the backtested recommendation set (class A/A+, final>=75). Recommend-grade
+    # names that are extended or not yet near the pivot are WATCHLIST (wait for the
+    # entry); B is watchlist; REJECT is AVOID.
+    # (Previously only the near-impossible A+ mapped to ACTIVE — gated by liq>=70,
+    # which most names never reach — so everything showed as "watchlist only".)
+    if m.classification.startswith("REJECT"):
         m.group = "AVOID"
+    elif (m.classification in ("A+", "A") and not m.extension_flag
+          and (m.dist_to_pivot <= 5 or m.ma_bounce >= 70)):
+        m.group = "ACTIVE"
+    else:
+        m.group = "WATCHLIST"
 
 
 # --------------------------------------------------------------------------
