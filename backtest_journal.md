@@ -19,3 +19,4 @@ One line per run. Grades the cohort of A/A+ recommendations the scanner would ha
 | 2026-06-23 15:44 | 2026-05-18 | 4 | 3 | 67% | +1.00 | +4.5% | 3/4 triggered; best AMAT +2.0R / worst AMZN -1.0R; 1 never triggered |
 | 2026-06-24 16:22 | 2026-05-19 | 4 | 1 | 100% | +2.00 | +3.0% | 1/4 triggered; best NTAP +2.0R / worst NTAP +2.0R; 3 never triggered |
 | 2026-06-25 15:21 | 2026-05-20 | 5 | 4 | 67% | +1.08 | +6.5% | 4/5 triggered; best NTAP +2.0R / worst ADI -1.0R; 1 never triggered |
+| 2026-06-26 15:19 | 2026-05-21 | 5 | 4 | 67% | +1.10 | +6.6% | 4/5 triggered; best KLAC +2.0R / worst CAT -1.0R; 1 never triggered |
