@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jacob.vcptracker-keepalive</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/jacob/Code/VCP tracker/keepalive.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/jacob/Code/VCP tracker</string>
+
+    <!-- Wake every 10 min; the script itself only pings Render during
+         Mon-Fri 08:00-16:59 CT (no-op otherwise), so the free-tier instance
+         stays warm during usage hours and sleeps nights/weekends. -->
+    <key>StartInterval</key>
+    <integer>600</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/jacob/Code/VCP tracker/reports/keepalive.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jacob/Code/VCP tracker/reports/keepalive.err.log</string>
+</dict>
+</plist>
